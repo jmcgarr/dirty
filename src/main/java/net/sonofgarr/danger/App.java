@@ -4,10 +4,13 @@ import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 
-import java.io.File;
+import java.io.*;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.Callable;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 @Command(
@@ -23,10 +26,6 @@ public class App implements Callable<Integer> {
 
     private String path = System.getProperty("user.home") + File.separator + directory;
 
-    /**
-     * Main process for the application. Kicks off the whole process.
-     * @param args command line arguments
-     */
     public static void main( String[] args ) {
         int exitCode = new CommandLine( new App() ).execute( args );
         System.exit( exitCode );
@@ -34,7 +33,7 @@ public class App implements Callable<Integer> {
 
     @Override
     public Integer call() throws Exception {
-        System.out.println("Listing projects in " + path );
+        System.out.println("Finding dirty git repos in " + path );
         File projectDir = new File( path );
         inspect( projectDir );
         return 0;
@@ -43,7 +42,18 @@ public class App implements Callable<Integer> {
     private void inspect( File file ) {
         if ( file.isDirectory() ) {
             if( isGitRepo( file ) ) {
-                System.out.println( (char)27 + "[31m" + file );
+                int dirtyFiles = gitStatus( file );
+                if( dirtyFiles > 0 ) {
+                    String repo = file.getAbsolutePath().replace( path + File.separator, "");
+                    System.out.println( (char)27 + "[32m"
+                            + repo + ": "
+                            + (char)27 + "[0m"
+                            + (char)27 + "[31m"
+                            + dirtyFiles + " untracked files"
+                            + (char)27 + "[0m"
+                    );
+                }
+
             } else {
                 Arrays.stream(file.listFiles()).forEach( f -> inspect( f ) );
             }
@@ -53,11 +63,45 @@ public class App implements Callable<Integer> {
     private boolean isGitRepo( File file ) {
         boolean isGitRepo = false;
         if( file.isDirectory() ) {
-            File[] files = file.listFiles();
-            List<File> gitRepos = Arrays.stream(files).filter( f -> f.getName().equals(".git") ).collect(Collectors.toList());
+            List<File> gitRepos = Arrays.stream( file.listFiles() )
+                    .filter( f -> f.getName().equals(".git") )
+                    .collect( Collectors.toList() );
             if( gitRepos.size() > 0 )
                 isGitRepo = true;
         }
         return isGitRepo;
+    }
+
+    private int gitStatus( File file ) {
+        AtomicInteger dirtyFiles = new AtomicInteger();
+        ProcessBuilder builder = new ProcessBuilder();
+        builder.command( "git", "status", "-s" );
+        builder.directory( file );
+        try {
+            Process process = builder.start();
+            StreamGobbler streamGobbler = new StreamGobbler( process.getInputStream(), s -> dirtyFiles.getAndIncrement());
+            Executors.newSingleThreadExecutor().submit( streamGobbler );
+            int exitCode = process.waitFor();
+            assert exitCode == 0;
+        } catch (IOException | InterruptedException e) {
+            e.printStackTrace();
+        }
+        return dirtyFiles.get();
+    }
+}
+
+class StreamGobbler implements Runnable {
+    private InputStream inputStream;
+    private Consumer<String> consumer;
+
+    public StreamGobbler( InputStream inputStream, Consumer<String> consumer ) {
+        this.inputStream = inputStream;
+        this.consumer = consumer;
+    }
+
+    @Override
+    public void run() {
+        new BufferedReader(new InputStreamReader(inputStream)).lines()
+                .forEach(consumer);
     }
 }
