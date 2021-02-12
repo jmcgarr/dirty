@@ -1,4 +1,4 @@
-package net.sonofgarr.danger;
+package net.sonofgarr.dirty;
 
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
@@ -14,9 +14,9 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 @Command(
-        name = "danger",
+        name = "dirty",
         description = "How many of my git repos are dirty?",
-        version = "danger 0.1.0",
+        version = "dirty 0.1.0",
         mixinStandardHelpOptions = true
 )
 public class App implements Callable<Integer> {

@@ -25,7 +25,7 @@ compileJava {
 }
 
 application {
-    mainClassName = 'net.sonofgarr.danger.App'
+    mainClassName = 'net.sonofgarr.dirty.App'
 }
 
 test {
@@ -33,8 +33,8 @@ test {
 }
 
 graal {
-    mainClass 'net.sonofgarr.danger.App'
-    outputName 'danger'
+    mainClass 'net.sonofgarr.dirty.App'
+    outputName 'dirty'
     option '-H:IncludeResources=.*/projects.build.gradle$ -H:Log=registerResource:'
 }
 
