@@ -74,9 +74,9 @@ public class App implements Callable<Integer> {
 
     private int gitStatus( File file ) {
         AtomicInteger dirtyFiles = new AtomicInteger();
-        ProcessBuilder builder = new ProcessBuilder();
-        builder.command( "git", "status", "-s" );
-        builder.directory( file );
+        ProcessBuilder builder = new ProcessBuilder()
+                .command( "git", "status", "-s" )
+                .directory( file );
         try {
             Process process = builder.start();
             StreamGobbler streamGobbler = new StreamGobbler( process.getInputStream(), s -> dirtyFiles.getAndIncrement());
@@ -84,7 +84,7 @@ public class App implements Callable<Integer> {
             int exitCode = process.waitFor();
             assert exitCode == 0;
         } catch (IOException | InterruptedException e) {
-            e.printStackTrace();
+            e.printStackTrace(); // TODO do better than this.
         }
         return dirtyFiles.get();
     }
