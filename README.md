@@ -2,7 +2,7 @@
 
 Small command line utility to find all the dirty git repositories on your machine.
 
-![Build](https://github.com/jmcgarr/dirty/workflows/Build/badge.svg)
+![Build](https://github.com/jmcgarr/dirty/workflows/Build/badge.svg) ![Release](https://github.com/jmcgarr/dirty/workflows/Release/badge.svg)
 
 ## Installation
 
