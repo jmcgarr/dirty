@@ -22,11 +22,22 @@ Glad you asked. So many reasons:
 
 Also, I don't need to justify myself to you! 😉
 
+## Building
+
+You can build the binary using Gradle:
+
+`./gradlew clean build nativeImage`
+
+Once built, you can just need to add the `dirty/build/graal/dirty` binary to your path.
+
 ## What's next
 
 This project is very nascent and lots of work is needed before it should taken seriously. 
 
 - [ ] Add tests
-- [ ] Build each commit on CircleCI
-- [ ] Publish from CircleCI to Github packages
+- [ ] Add better stdout/stderr (logging perhaps)  
+- [ ] Build each commit via CI
+- [ ] Publish from CI to Github packages
 - [ ] Allow `brew install` (likely requires me creating a tap)
+- [ ] Check to see how far behind each repository is (this should be an option)
+- [ ] Test/support Windows
