@@ -2,6 +2,8 @@
 
 Small command line utility to find all the dirty git repositories on your machine.
 
+![Build](https://github.com/jmcgarr/dirty/workflows/Build/badge.svg)
+
 ## Installation
 
 Coming soon,...
@@ -36,7 +38,7 @@ This project is very nascent and lots of work is needed before it should taken s
 
 - [ ] Add tests
 - [ ] Add better stdout/stderr (logging perhaps)  
-- [ ] Build each commit via CI
+- [X] Build each commit via CI
 - [ ] Publish from CI to Github packages
 - [ ] Allow `brew install` (likely requires me creating a tap)
 - [ ] Check to see how far behind each repository is (this should be an option)
