@@ -39,6 +39,8 @@ This project is very nascent and lots of work is needed before it should taken s
 **Features**
 
 - [ ] Add tests
+- [ ] Make output tabular (optional?)   
+- [ ] Option to output machine readable formats (csv, json)  
 - [ ] Add better stdout/stderr (logging perhaps)
 - [ ] Parallelize the scanning of git repos  
 - [ ] Check to see how far behind each repository is (this should be an option)

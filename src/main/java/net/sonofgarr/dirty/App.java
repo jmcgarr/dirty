@@ -9,6 +9,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -42,16 +43,24 @@ public class App implements Callable<Integer> {
     private void inspect( File file ) {
         if ( file.isDirectory() ) {
             if( isGitRepo( file ) ) {
+                String errors = "";
                 int dirtyFiles = gitStatus( file );
                 if( dirtyFiles > 0 ) {
-                    String repo = file.getAbsolutePath().replace( path + File.separator, "");
-                    System.out.println( (char)27 + "[32m"
-                            + repo + ": "
-                            + (char)27 + "[0m"
-                            + (char)27 + "[31m"
+                    errors += " " + (char)27 + "[32m"
                             + dirtyFiles + " untracked files"
-                            + (char)27 + "[0m"
-                    );
+                            + (char)27 + "[0m";
+                }
+                boolean hasNoRemote = gitRemote( file );
+                if( hasNoRemote ) {
+                    errors += " " + (char)27 + "[31m"
+                            + "No remote repository"
+                            + (char)27 + "[0m";
+                }
+                if( errors.length() > 0 ) {
+                    System.out.println( (char)27 + "[33m"
+                            + file.getAbsolutePath().replace( path + File.separator, "")
+                            + ":" + (char)27 + "[0m"
+                            + errors );
                 }
 
             } else {
@@ -72,6 +81,8 @@ public class App implements Callable<Integer> {
         return isGitRepo;
     }
 
+    /*******************/
+
     private int gitStatus( File file ) {
         AtomicInteger dirtyFiles = new AtomicInteger();
         ProcessBuilder builder = new ProcessBuilder()
@@ -87,6 +98,27 @@ public class App implements Callable<Integer> {
             e.printStackTrace(); // TODO do better than this.
         }
         return dirtyFiles.get();
+    }
+
+    private boolean gitRemote( File file ) {
+        AtomicBoolean hasNoRemote = new AtomicBoolean( true );
+        ProcessBuilder builder = new ProcessBuilder()
+                .command( "git", "remote" )
+                .directory( file );
+        try {
+            Process process = builder.start();
+            StreamGobbler streamGobbler = new StreamGobbler( process.getInputStream(), s -> {
+                if( s != null && !s.isEmpty() ) {
+                    hasNoRemote.getAndSet( false );
+                }
+            } );
+            Executors.newSingleThreadExecutor().submit( streamGobbler );
+            int exitCode = process.waitFor();
+            assert exitCode == 0;
+        } catch (IOException | InterruptedException e ) {
+
+        }
+        return hasNoRemote.get();
     }
 }
 
