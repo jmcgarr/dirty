@@ -36,10 +36,17 @@ Once built, you can just need to add the `dirty/build/graal/dirty` binary to you
 
 This project is very nascent and lots of work is needed before it should taken seriously. 
 
+**Features**
+
 - [ ] Add tests
-- [ ] Add better stdout/stderr (logging perhaps)  
-- [X] Build each commit via CI
-- [ ] Publish from CI to Github packages
-- [ ] Allow `brew install` (likely requires me creating a tap)
+- [ ] Add better stdout/stderr (logging perhaps)
 - [ ] Check to see how far behind each repository is (this should be an option)
+
+**Build and publishing**
+
+- [X] Build each commit via CI
+- [X] Publish from CI to Github packages
+- [ ] Produce binaries for Windows, Mac and Linux
 - [ ] Test/support Windows
+- [ ] Add signing to binaries for Mac and Windows
+- [ ] Allow `brew install` (likely requires me creating a tap)
