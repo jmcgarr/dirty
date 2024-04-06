@@ -1,5 +1,7 @@
 package net.sonofgarr.dirty;
 
+import net.sonofgarr.dirty.util.StreamGobbler;
+
 import java.io.File;
 import java.io.IOException;
 import java.util.Arrays;
@@ -9,21 +11,27 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
-public class Git {
+public class GitRepo {
 
-    public static boolean isGitRepo( File file ) {
+    private File file;
+
+    public GitRepo( File file ) {
+        this.file = file;
+    }
+
+    public boolean isGitRepo() {
         boolean isGitRepo = false;
         if( file.isDirectory() ) {
             List<File> gitRepos = Arrays.stream( file.listFiles() )
                     .filter( f -> f.getName().equals(".git") )
                     .collect( Collectors.toList() );
-            if(!gitRepos.isEmpty())
+            if( !gitRepos.isEmpty() )
                 isGitRepo = true;
         }
         return isGitRepo;
     }
 
-    public static int status( File file ) {
+    public int status() {
         AtomicInteger dirtyFiles = new AtomicInteger();
         ProcessBuilder builder = new ProcessBuilder()
                 .command( "git", "status", "-s" )
@@ -40,7 +48,7 @@ public class Git {
         return dirtyFiles.get();
     }
 
-    public static boolean hasRemote( File file ) {
+    public boolean hasRemote() {
         AtomicBoolean hasNoRemote = new AtomicBoolean( true );
         ProcessBuilder builder = new ProcessBuilder()
                 .command( "git", "remote" )

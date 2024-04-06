@@ -28,7 +28,7 @@ public class App implements Callable<Integer> {
     @Override
     public Integer call() throws Exception {
         System.out.println("Finding dirty git repos in " + path );
-        new PathInspector( path ).inspect();
+        new PathInspector( path ).recursiveInspection();
         return 0;
     }
 }

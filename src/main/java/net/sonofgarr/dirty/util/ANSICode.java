@@ -1,4 +1,4 @@
-package net.sonofgarr.dirty;
+package net.sonofgarr.dirty.util;
 
 public enum ANSICode {
 

@@ -1,4 +1,4 @@
-package net.sonofgarr.dirty;
+package net.sonofgarr.dirty.util;
 
 import java.io.BufferedReader;
 import java.io.InputStream;
