@@ -11,12 +11,17 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
+// TODO Should we extend the File class?
 public class GitRepo {
 
     private File file;
 
     public GitRepo( File file ) {
         this.file = file;
+    }
+
+    public boolean isDirectory() {
+        return file.isDirectory();
     }
 
     public boolean isGitRepo() {

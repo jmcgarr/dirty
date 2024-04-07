@@ -23,20 +23,17 @@ public class PathInspector {
     }
 
     private void recursiveInspection( File directory ) {
-        GitRepo repo = new GitRepo( directory );
-        System.out.println(directory.getAbsolutePath());
-        if( repo.isGitRepo() ) {
-            System.out.println(" > Git repo found. Inspecting...");
+        GitRepo repo = new GitRepo(directory);
+        if ( repo.isGitRepo() ) {
             String errors = "";
-            errors += dirtyFilesTextFormat( repo.status() );
-            errors += remoteTextFormat( repo.hasRemote() );
-            if( !errors.isEmpty() ) {
-                String directoryPath = directory.getAbsolutePath().replace( directory.getAbsolutePath() + File.separator, "");
-                String preface = decorateText( directoryPath, ANSICode.YELLOW, false );
-                System.out.println( preface + errors );
+            errors += dirtyFilesTextFormat(repo.status());
+            errors += remoteTextFormat(repo.hasRemote());
+            if (!errors.isEmpty()) {
+                String directoryPath = directory.getAbsolutePath().replace(directory.getAbsolutePath() + File.separator, "");
+                String preface = decorateText(directoryPath, ANSICode.YELLOW, false);
+                System.out.println(preface + errors);
             }
-        } else {
-            System.out.println( directory.listFiles() );
+        } else if ( repo.isDirectory() ) {
             Arrays.stream( directory.listFiles() ).forEach( f -> recursiveInspection( f ) );
         }
     }
