@@ -1,0 +1,26 @@
+name: CodeSign
+
+on: workflow_call
+  
+jobs:
+  codesign:
+    runs-on: macos-15
+
+    steps:
+    - name: Download the binary from previous build
+      uses: actions/download-artifact@v4
+      with:
+        name: graal-binary-dist
+        path: ./dist
+    - name: Codesign executable
+      env: 
+        MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+        MACOS_CERTIFICATE_PWD: ${{ secrets.MACOS_CERTIFICATE_PWD }}
+      run: |
+        echo $MACOS_CERTIFICATE | base64 -d > certificate.p12
+        security create-keychain -p 12345pwd build.keychain
+        security default-keychain -s build.keychain
+        security unlock-keychain -p 12345pwd build.keychain
+        security import certificate.p12 -k build.keychain -P $MACOS_CERTIFICATE_PWD -T /usr/bin/codesign
+        # security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k 12345pwd build.keychain
+        # /usr/bin/codesign --force -s AD33962A59AC3051D81DC13AFBBB5C7B29CD9CBC ./dist/dirty -v
