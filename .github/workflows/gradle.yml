@@ -43,6 +43,6 @@ jobs:
         security create-keychain -p 12345pwd build.keychain
         security default-keychain -s build.keychain
         security unlock-keychain -p 12345pwd build.keychain
-        security import certificate.p12 -k build.keychain -P $MACOS_CERTIFICATE_PWD -T /usr/bin/codesign
-        security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k 12345pwd build.keychain
-        /usr/bin/codesign --force -s AD33962A59AC3051D81DC13AFBBB5C7B29CD9CBC ./path/to/you/app -v
+        # security import certificate.p12 -k build.keychain -P $MACOS_CERTIFICATE_PWD -T /usr/bin/codesign
+        # security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k 12345pwd build.keychain
+        # /usr/bin/codesign --force -s AD33962A59AC3051D81DC13AFBBB5C7B29CD9CBC ./path/to/you/app -v
