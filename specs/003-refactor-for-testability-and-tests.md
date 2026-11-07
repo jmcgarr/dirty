@@ -100,3 +100,14 @@ maintainer action after merge.
 - Keep the header line at all? (Recommend yes, on stderr.)
 - Accept the "untracked files" → "changed files" label change, or parse the
   porcelain XY columns and report untracked and modified separately?
+
+## Decisions (2026-11-07)
+
+- Default `--max-depth` 4; skip list `node_modules`, `build`, `target`,
+  `.gradle` plus hidden directories.
+- Nested repos and submodules are not reported (unchanged).
+- Header line kept, moved to stderr.
+- Parse porcelain XY columns; `RepoStatus` carries `modified` and `untracked`
+  separately and the text line reads "N modified, M untracked" (omit a zero
+  term). Supersedes the "changed files" wording above.
+- Java 21: use records; no Mockito in the new tests (hand-written fakes).

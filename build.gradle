@@ -2,7 +2,7 @@ plugins {
     id 'java'
     id 'jacoco'
     id 'application'
-    id 'com.palantir.graal' version '0.12.0'
+    id 'org.graalvm.buildtools.native' version '1.1.18'
 }
 
 repositories {
@@ -10,30 +10,59 @@ repositories {
 }
 
 dependencies {
-    implementation 'info.picocli:picocli:4.1.0'
-    annotationProcessor 'info.picocli:picocli-codegen:4.1.0'
-    testImplementation "org.mockito:mockito-core:2.+"
-    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.5.2'
-    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.5.2'
+    implementation 'info.picocli:picocli:4.7.7'
+    annotationProcessor 'info.picocli:picocli-codegen:4.7.7'
+
+    testImplementation platform('org.junit:junit-bom:5.14.4')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testImplementation 'org.mockito:mockito-core:5.24.0'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
 }
 
 compileJava {
-    sourceCompatibility = JavaVersion.VERSION_1_8
-    targetCompatibility = JavaVersion.VERSION_1_8
+    // picocli-codegen writes GraalVM reflection config under
+    // META-INF/native-image/picocli-generated/<project>/ at compile time.
     options.compilerArgs += ["-Aproject=${project.name}"]
 }
 
 application {
-    mainClass.set( 'net.sonofgarr.dirty.App')
+    mainClass = 'net.sonofgarr.dirty.App'
 }
 
 test {
     useJUnitPlatform()
+    finalizedBy jacocoTestReport
 }
 
-graal {
-    mainClass 'net.sonofgarr.dirty.App'
-    outputName 'dirty'
-    option '-H:IncludeResources=.*/projects.build.gradle$ -H:Log=registerResource:'
+jacocoTestReport {
+    dependsOn test
+    reports {
+        xml.required = true
+        html.required = true
+    }
 }
 
+// Native image. Requires a GraalVM JDK: the plugin looks at GRAALVM_HOME, then
+// JAVA_HOME, then the JVM running Gradle. Locally: `sdk env` (see .sdkmanrc).
+// In CI: graalvm/setup-graalvm. Plain `./gradlew build` does not need GraalVM.
+graalvmNative {
+    // The shared reachability-metadata repository only matters for third-party
+    // libraries that need reflection config; picocli-codegen generates ours at
+    // compile time. Its current schema also needs a newer GraalVM than CE 21.0.2.
+    metadataRepository {
+        enabled = false
+    }
+    binaries {
+        main {
+            imageName = 'dirty'
+            mainClass = 'net.sonofgarr.dirty.App'
+            fallback = false
+        }
+    }
+}
