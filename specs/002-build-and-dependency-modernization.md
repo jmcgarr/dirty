@@ -104,7 +104,8 @@ macOS, which blocks spec 007.
 - No dynamic dependency versions (`2.+`) remain; `gradlew dependencies` shows
   picocli 4.7.x and JUnit 5.x only.
 - `jacocoTestReport` runs after `test` and emits XML.
-- Wrapper checksum verified by `setup-gradle` in CI.
+- `gradle-wrapper.jar` validated by `setup-gradle` in CI; the distribution zip
+  verified against `distributionSha256Sum` by the wrapper script itself.
 
 ## Open questions (maintainer)
 
@@ -113,3 +114,20 @@ macOS, which blocks spec 007.
   locally) or stay on palantir?
 - Keep Mockito at 5.x "just in case", or drop it?
 - Add Dependabot for Gradle and GitHub Actions in this PR?
+
+## Decisions (2026-11-07)
+
+- Java **21** via Gradle toolchain + foojay resolver.
+- **`org.graalvm.buildtools.native` 1.1.18** replaces `com.palantir.graal`.
+  Tasks: `nativeCompile`, `nativeRun`, `nativeTest`. Output
+  `build/native/nativeCompile/dirty`. `fallback = false`. GraalVM discovered
+  via `GRAALVM_HOME`/`JAVA_HOME`; `.sdkmanrc` pins `21.0.2-graalce` locally.
+- picocli 4.7.7; JUnit BOM 5.14.4 + `junit-platform-launcher`; JaCoCo wired
+  with XML; wrapper checksum added; dead `-H:` option removed.
+- Mockito **pinned at 5.24.0** rather than dropped, pending the maintainer's
+  answer to "why drop it?". Recommendation stands: it is unused, the design
+  uses two-method interfaces where a hand-written fake is shorter and
+  deterministic, and Mockito's Byte Buddy agent is a known source of
+  `nativeTest` and JDK 21 dynamic-agent warnings.
+- Dependabot added for Gradle and GitHub Actions (weekly, grouped).
+- Gradle 8.6 → 9.x stays a separate chore.

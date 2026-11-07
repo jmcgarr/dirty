@@ -102,3 +102,16 @@ for now.
 - Tags only, or also nightly artifacts from `master`?
 - Keep the reusable-workflow approach for codesign, or fold it into
   `release.yml`?
+
+## Decisions (2026-11-07)
+
+- **Both** Apple Developer ID signing + notarization **and** a Homebrew tap.
+  Secrets required: Developer ID Application certificate (.p12, base64) and
+  password, signing identity, App Store Connect API key id / issuer id / key.
+  Run the `security-review` skill before opening the PR.
+- Platforms: `ubuntu-latest` (linux-x86_64), `macos-15` (macos-aarch64),
+  `windows-latest` (windows-x86_64). Intel mac and linux-aarch64 optional.
+- Releases on tags only; no nightly artifacts. Per-push native build on Linux
+  is already in `gradle.yml` (spec 001).
+- Reusable `build-native.yml` called at job level by both workflows is
+  preferred over duplicating the matrix.

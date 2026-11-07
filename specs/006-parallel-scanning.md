@@ -50,3 +50,8 @@ measured).
 
 - Cap on the default job count (e.g. 8) to avoid hammering a laptop disk?
 - Fixed pool vs virtual threads if the Java level is 21?
+
+## Decisions (2026-11-07)
+
+- Java 21: `Executors.newVirtualThreadPerTaskExecutor()`; no default job cap.
+  `-j N` remains available to throttle (bounded via a semaphore if set).

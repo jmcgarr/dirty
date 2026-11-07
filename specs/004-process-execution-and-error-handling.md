@@ -88,3 +88,15 @@ execution (006).
   means "at least one dirty repo" (like `git diff --exit-code`)?
 - Default timeout per git call (30 s?).
 - Add `--verbose` now or defer?
+
+## Decisions (2026-11-07)
+
+- Exit codes: **0** all repos inspected; **1** one or more repos could not be
+  inspected; **2** usage error or fatal startup (bad option, root not a
+  directory, git missing); **130** on SIGINT. Matches bash/coreutils and
+  picocli's defaults. No `sysexits.h` codes.
+- Add `--exit-code`: with it, exit 1 when any repo is dirty, 0 when all are
+  clean; errors still produce 1 (and are listed). Without it, dirtiness never
+  affects the exit status.
+- Default per-call git timeout 30 s.
+- Add `--verbose` in this spec.

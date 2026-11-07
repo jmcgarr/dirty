@@ -59,3 +59,13 @@ drawing; streaming output.
 - Include clean repos by default in machine formats (recommend yes) and in
   text (recommend no)?
 - Keep `ANSICode` or switch to picocli's `Ansi`?
+
+## Decisions (2026-11-07)
+
+- JSON is a public contract: top-level object `{"version": 1, "root": …,
+  "repos": [...]}`; document it in README.
+- Machine formats include clean repos by default; text/table do not (`--all`).
+- Use picocli's `CommandLine.Help.Ansi` (`AUTO`, honours `NO_COLOR`, TTY) and
+  retire `util/ANSICode`.
+- Per spec 003, repo objects carry `modified` and `untracked` counts rather
+  than a single `changedFiles`.
