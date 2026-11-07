@@ -43,17 +43,33 @@ Notes:
 
 ## Known rough edges (as of 2026-11-06)
 
-- `gradle.yml` calls the reusable workflow with
-  `uses: ./.github/workflows/codesign.yml` **as a step**. Reusable workflows
-  can only be called at the **job** level (`jobs.<id>.uses`), so the Build
-  workflow is currently invalid. The last several commits on `master`
-  ("This should not work", "Again...") are attempts to fix this.
+A full architecture and test review lives in `specs/000-architecture-and-test-review.md`;
+the fixes are sequenced in `specs/001` through `specs/007`. Headline items:
+
+- **CI is red because of the JDK, not the codesign step.** `gradle.yml` uses
+  `actions/setup-java@v1` with JDK `11.0.2`, which cannot complete TLS to Maven
+  Central (`peer not authenticated` fetching picocli). The build dies in
+  `compileJava`. Separately, `uses: ./.github/workflows/codesign.yml` **as a
+  step** is invalid (reusable workflows are job-level only) and would fail next;
+  and `nativeImage` on the arm64 `macos-15` runner will likely fail because the
+  palantir plugin pins GraalVM 20.2.0 (no darwin-aarch64 build). See spec 001.
 - `codesign.yml` has the actual `codesign` invocation commented out and
-  hard-codes a throwaway keychain password; it is a work in progress.
-- `App.gitStatus`/`gitRemote` swallow exceptions, use `assert` for exit codes,
-  and create a new single-thread executor per repo without shutting it down.
-- `App.inspect` recurses into every non-git directory under the root with no
-  depth limit, symlink protection, or skip list.
+  hard-codes a throwaway keychain password; it is a work in progress (spec 007).
+- **`-d` is ignored.** `path` in `App` is a field initializer computed before
+  picocli injects the option, so the tool always scans `$HOME/Projects` (spec 003).
+- **Git output is lost.** The stdout gobbler is never joined before counts are
+  read; in a cold JVM a 2-line `git status` reports 0 changes. stderr is never
+  drained (hang risk), executors leak per call, `assert` is dead at runtime, and
+  every git failure is reported as "No remote repository" with exit 0 (spec 004).
+- `App.inspect` recurses with no depth limit, follows symlinks (a `loop -> .`
+  link reports the same repo dozens of times), and NPEs on an unreadable
+  directory because `listFiles()` returns null (spec 003).
+- ANSI codes are written unconditionally, even when piped (spec 005).
+- `mockito-core:2.+` resolves to Byte Buddy 1.9.x, which cannot mock on Java
+  17/21; picocli 4.1.0 and the palantir graal plugin are 2019-2021 era (spec 002).
+- The `adding-tests` branch is **not mergeable**: it carries every bug above,
+  regresses path display, inverts `hasRemote()`, and its only test is
+  `assertEquals(1, 1)`. Spec 003 supersedes it.
 - README TODOs: tests, tabular/JSON/CSV output, logging, parallel scanning,
   "how far behind remote" check, Windows support, cross-platform binaries,
   Homebrew tap.
