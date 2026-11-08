@@ -74,3 +74,13 @@ multi-platform matrix (007).
   feedback)?
 - Primary native target OS/arch: `macos-15` (arm64) or `macos-13` (last x64
   image) or `ubuntu-latest`?
+
+## Decisions (2026-11-07)
+
+- JDK 21 everywhere; done together with spec 002 in one PR because the
+  workflow had to reference the new `nativeCompile` task and output path.
+- Native build on **every** push/PR, single `ubuntu-latest` runner. Full
+  matrix is spec 007.
+- Step-level codesign call removed; signing lives in release (spec 007).
+- `release.yml` received only the action/JDK/path bumps needed to keep it
+  from breaking; its rewrite remains spec 007.

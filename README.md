@@ -26,11 +26,19 @@ Also, I don't need to justify myself to you! 😉
 
 ## Building
 
-You can build the binary using Gradle:
+Requirements: Gradle needs **JDK 17 or newer** to run. Compilation uses JDK 21
+through a Gradle toolchain, which Gradle downloads if none is installed. The
+native binary additionally needs a **GraalVM JDK 21**.
 
-`./gradlew clean build nativeImage`
+With [sdkman](https://sdkman.io) the repo's `.sdkmanrc` selects GraalVM for you:
 
-Once built, you can just need to add the `dirty/build/graal/dirty` binary to your path.
+```
+sdk env install   # first time only
+sdk env
+./gradlew build nativeCompile
+```
+
+The binary lands at `build/native/nativeCompile/dirty`; copy it onto your `PATH`.
 
 ## What's next
 

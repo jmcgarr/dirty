@@ -141,3 +141,27 @@ Later, unscheduled: "how far behind remote" (`git rev-list --left-right --count
 4. Is the JSON output a public contract? See 005.
 5. Apple Developer ID signing + notarization vs Homebrew-tap-only distribution. See 007.
 6. Which platforms are actually supported (Intel mac? Windows?). See 007.
+
+## Decisions (2026-11-07, maintainer)
+
+1. **Java 21**, skipping 17.
+2. **Switch to `org.graalvm.buildtools.native`** (shipped with spec 002).
+3. **Exit codes follow the bash/coreutils convention**: 0 success, 1 runtime
+   errors (repos that could not be inspected), 2 usage/fatal, 130 on SIGINT.
+   Opt-in `--exit-code` makes 1 mean "at least one dirty repo". No `sysexits.h`.
+4. JSON output is a public contract with a `"version": 1` field. Machine
+   formats include clean repos by default; text does not.
+5. **Both** Apple Developer ID signing + notarization **and** a Homebrew tap.
+6. Platforms: Linux x86_64, macOS arm64, Windows x86_64. Intel mac and Linux
+   arm64 optional, not required.
+7. Native image built on every push to `master`, one Linux runner; full
+   matrix on tags only. No nightly artifacts.
+8. Walk: default depth 4; skip `node_modules`, `build`, `target`, `.gradle`,
+   hidden dirs; nested repos/submodules unreported.
+9. Header line kept, on stderr. Counts reported as "N modified, M untracked"
+   from porcelain XY columns, not one aggregate.
+10. Git timeout 30 s; add `--verbose` now.
+11. Color via picocli's built-in `Ansi`; retire `ANSICode`.
+12. Virtual threads for parallel scanning, no default job cap.
+13. Dependabot for Gradle and Actions added.
+14. **Open:** drop Mockito or keep it pinned at 5.x. Pinned at 5.24.0 for now.
