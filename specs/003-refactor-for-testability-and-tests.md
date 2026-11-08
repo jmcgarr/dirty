@@ -114,6 +114,8 @@ maintainer action after merge.
 
 ## Implementation notes (2026-11-08)
 
+PR: https://github.com/jmcgarr/dirty/pull/6
+
 - Layout: `App`, `Scanner`, `RepoFinder`, `Git`/`ProcessGit`/`GitException`,
   `RepoStatus`/`RepoReport`/`ScanResult`, `Reporter`/`TextReporter`, and
   `process/CommandRunner`/`CommandResult`/`ProcessCommandRunner`.
