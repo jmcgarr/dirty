@@ -13,13 +13,22 @@ GraalVM and distributed via GitHub Releases.
 - **Language / build:** Java 21 (Gradle toolchain), Gradle 8.6 (wrapper checked
   in), picocli 4.7 for CLI parsing, `org.graalvm.buildtools.native` for
   native-image builds.
-- **Entry point:** `src/main/java/net/sonofgarr/dirty/App.java`
-  (`net.sonofgarr.dirty.App`, a picocli `@Command` returning an exit code).
-- **Helper:** `StreamGobbler.java` drains a subprocess stdout into a consumer.
-- **Tests:** none on `master` yet. JUnit 5 + Mockito are already declared in
-  `build.gradle`. The `adding-tests` branch contains an in-progress refactor
-  (`GitRepo`, `PathInspector`, `util/ANSICode`) plus a first test; check it
-  before starting any test or refactor work so you do not duplicate it.
+- **Entry point:** `src/main/java/net/sonofgarr/dirty/App.java`, a picocli
+  `@Command`. It only parses options, wires the real implementations, and
+  maps the result to an exit code. Everything else is data in, data out:
+  - `RepoFinder` walks the tree (`Files.walkFileTree`, no symlinks, depth cap,
+    skip list). The only class that touches the filesystem walk.
+  - `process/CommandRunner` + `ProcessCommandRunner`: the only class that
+    touches `ProcessBuilder`. Tests use `FakeCommandRunner`.
+  - `Git` + `ProcessGit`: runs `git status --porcelain` / `git remote` and
+    parses them into `RepoStatus(modified, untracked, hasRemote)`. Non-zero
+    exit or I/O failure → `GitException`.
+  - `Scanner` → `ScanResult(root, List<RepoReport>)`; a `RepoReport` carries
+    either a status or an error string.
+  - `Reporter` + `TextReporter(Ansi)`: renders to an injected `PrintWriter`.
+- **Tests:** `src/test` has unit tests for every component (hand-written fakes,
+  no Mockito) plus `ProcessGitIT`, a real-git integration test that is skipped
+  when git is not on PATH. `./gradlew test` runs all of them.
 - **CI:** `.github/workflows/gradle.yml` (Build on push/PR to `master`),
   `release.yml` (on `v*` tags), `codesign.yml` (reusable `workflow_call`).
 
@@ -28,7 +37,7 @@ GraalVM and distributed via GitHub Releases.
 ```bash
 ./gradlew build                 # compile + jar + tests (run Gradle on JDK 17+; it provisions JDK 21 for compiling)
 ./gradlew test                  # run JUnit tests
-./gradlew run --args="-d Code"  # run the CLI; -d is a dir name under $HOME (currently a no-op, spec 003)
+./gradlew run --args="-d Code"  # run the CLI; -d is a dir name under $HOME or an absolute path
 sdk env && ./gradlew nativeCompile   # native binary -> build/native/nativeCompile/dirty (needs GraalVM 21)
 ./gradlew nativeTest            # run the JUnit suite inside a native image (catches reflection gaps)
 ```
@@ -44,7 +53,7 @@ Notes:
 - `build/`, `.gradle/`, and `.idea/` are git-ignored build/IDE output. Never
   commit them.
 
-## Known rough edges (as of 2026-11-06)
+## Known rough edges (as of 2026-11-08)
 
 A full architecture and test review lives in `specs/000-architecture-and-test-review.md`;
 the fixes are sequenced in `specs/001` through `specs/007`. Headline items:
@@ -53,20 +62,13 @@ the fixes are sequenced in `specs/001` through `specs/007`. Headline items:
   hard-codes a throwaway keychain password; nothing calls it any more. It is
   rewritten in spec 007 together with `release.yml`, which still uses the
   archived `create-release`/`upload-release-asset` actions.
-- **`-d` is ignored.** `path` in `App` is a field initializer computed before
-  picocli injects the option, so the tool always scans `$HOME/Projects` (spec 003).
-- **Git output is lost.** The stdout gobbler is never joined before counts are
-  read; in a cold JVM a 2-line `git status` reports 0 changes. stderr is never
-  drained (hang risk), executors leak per call, `assert` is dead at runtime, and
-  every git failure is reported as "No remote repository" with exit 0 (spec 004).
-- `App.inspect` recurses with no depth limit, follows symlinks (a `loop -> .`
-  link reports the same repo dozens of times), and NPEs on an unreadable
-  directory because `listFiles()` returns null (spec 003).
-- ANSI codes are written unconditionally, even when piped (spec 005).
-- The `adding-tests` branch is **not mergeable**: it carries every bug above,
-  regresses path display, inverts `hasRemote()`, and its only test is
-  `assertEquals(1, 1)`. Spec 003 supersedes it.
-- README TODOs: tests, tabular/JSON/CSV output, logging, parallel scanning,
+- Not yet done from spec 004: per-call git timeout, `git --version` preflight,
+  `--verbose`, `--exit-code`. Errors already surface as `error:` rows and exit 1.
+- No `--format`/`--color` options yet (spec 005); `TextReporter` uses picocli
+  `Ansi.AUTO`, so colors are off when piped or `NO_COLOR` is set.
+- The `adding-tests` branch is superseded by the spec 003 refactor and can be
+  deleted.
+- README TODOs: tabular/JSON/CSV output, logging, parallel scanning,
   "how far behind remote" check, Windows support, cross-platform binaries,
   Homebrew tap.
 

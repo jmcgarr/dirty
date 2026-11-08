@@ -10,9 +10,32 @@ Coming soon,...
 
 ## Usage
 
-`dirty` assumes that you have all your git repos checked out in a single directory. `dirty` builds off the defaults established by `git-grab`, which checks out code to `$HOME/Projects`. If this works, just run
+`dirty` scans a directory of git checkouts and prints one line per repository
+that needs attention: uncommitted changes, untracked files, or no remote.
 
-Given this default, you can run `dirty` from any directory in your shell and get the same result 
+```
+dirty                         # scan ~/Projects (the git-grab default)
+dirty -d Code                 # scan ~/Code
+dirty -d /srv/repos           # scan an absolute path
+dirty --max-depth 2           # only look two directory levels down (default 4)
+```
+
+Example output:
+
+```
+github/jmcgarr/budget: No remote repository
+github/jmcgarr/dirty: 6 modified, 11 untracked
+github/jmcgarr/since: 1 untracked
+```
+
+Hidden directories and `node_modules`, `build`, `target`, `.gradle` are
+skipped; symbolic links are not followed; a repository's contents are not
+searched for nested repositories. The "Finding dirty git repos in …" banner and
+any warnings go to stderr, so stdout is safe to pipe. Colors are disabled
+automatically when output is not a terminal or `NO_COLOR` is set.
+
+Exit status: `0` all repositories inspected, `1` one or more could not be
+inspected (shown as `error:` lines), `2` usage error.
 
 ## Um, Why?
 
@@ -46,7 +69,7 @@ This project is very nascent and lots of work is needed before it should taken s
 
 **Features**
 
-- [ ] Add tests
+- [X] Add tests
 - [ ] Make output tabular (optional?)   
 - [ ] Option to output machine readable formats (csv, json)  
 - [ ] Add better stdout/stderr (logging perhaps)

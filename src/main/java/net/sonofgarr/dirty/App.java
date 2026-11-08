@@ -1,123 +1,89 @@
 package net.sonofgarr.dirty;
 
+import net.sonofgarr.dirty.process.ProcessCommandRunner;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
+import picocli.CommandLine.Help.Ansi;
+import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Option;
+import picocli.CommandLine.ParameterException;
+import picocli.CommandLine.Spec;
 
-import java.io.*;
-import java.util.Arrays;
-import java.util.List;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.concurrent.Callable;
-import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Collectors;
 
 @Command(
         name = "dirty",
         description = "How many of my git repos are dirty?",
         version = "dirty 0.1.0",
-        mixinStandardHelpOptions = true
+        mixinStandardHelpOptions = true,
+        sortOptions = false
 )
 public class App implements Callable<Integer> {
 
-    @Option( names = "-d", description="Directory to search, within user's home" )
-    private String directory = "Projects";
+    @Spec
+    CommandSpec spec;
 
-    private String path = System.getProperty("user.home") + File.separator + directory;
+    @Option(names = {"-d", "--directory"}, paramLabel = "<dir>",
+            description = "Directory to scan: an absolute path, or a name under your home directory (default: ${DEFAULT-VALUE}).")
+    String directory = "Projects";
 
-    public static void main( String[] args ) {
-        int exitCode = new CommandLine( new App() ).execute( args );
-        System.exit( exitCode );
+    @Option(names = "--max-depth", paramLabel = "<n>",
+            description = "How many directory levels below the root to search (default: ${DEFAULT-VALUE}).")
+    int maxDepth = RepoFinder.DEFAULT_MAX_DEPTH;
+
+    private final Path home;
+    private final Git git;
+    private final Reporter reporter;
+
+    /** Production wiring. */
+    public App() {
+        this(Path.of(System.getProperty("user.home")),
+                new ProcessGit(new ProcessCommandRunner()),
+                new TextReporter(Ansi.AUTO));
+    }
+
+    /** Test wiring. */
+    App(Path home, Git git, Reporter reporter) {
+        this.home = home;
+        this.git = git;
+        this.reporter = reporter;
+    }
+
+    public static void main(String[] args) {
+        System.exit(new CommandLine(new App()).execute(args));
     }
 
     @Override
-    public Integer call() throws Exception {
-        System.out.println("Finding dirty git repos in " + path );
-        File projectDir = new File( path );
-        inspect( projectDir );
-        return 0;
+    public Integer call() throws IOException {
+        if (maxDepth < 0) {
+            throw new ParameterException(spec.commandLine(), "--max-depth must be >= 0");
+        }
+        Path root = resolveRoot();
+        if (!Files.isDirectory(root)) {
+            throw new ParameterException(spec.commandLine(), "Not a directory: " + root);
+        }
+        PrintWriter out = spec.commandLine().getOut();
+        PrintWriter err = spec.commandLine().getErr();
+
+        err.println("Finding dirty git repos in " + root);
+        err.flush();
+
+        Scanner scanner = new Scanner(new RepoFinder(maxDepth, RepoFinder.DEFAULT_SKIP), git);
+        ScanResult result = scanner.scan(root, warning -> {
+            err.println("warning: " + warning);
+            err.flush();
+        });
+        reporter.report(result, out);
+        return result.hasErrors() ? 1 : 0;
     }
 
-    private void inspect( File file ) {
-        if ( file.isDirectory() ) {
-            if( isGitRepo( file ) ) {
-                String errors = "";
-                int dirtyFiles = gitStatus( file );
-                if( dirtyFiles > 0 ) {
-                    errors += " " + (char)27 + "[32m"
-                            + dirtyFiles + " untracked files"
-                            + (char)27 + "[0m";
-                }
-                boolean hasNoRemote = gitRemote( file );
-                if( hasNoRemote ) {
-                    errors += " " + (char)27 + "[31m"
-                            + "No remote repository"
-                            + (char)27 + "[0m";
-                }
-                if( errors.length() > 0 ) {
-                    System.out.println( (char)27 + "[33m"
-                            + file.getAbsolutePath().replace( path + File.separator, "")
-                            + ":" + (char)27 + "[0m"
-                            + errors );
-                }
-
-            } else {
-                Arrays.stream(file.listFiles()).forEach( f -> inspect( f ) );
-            }
-        }
-    }
-
-    private boolean isGitRepo( File file ) {
-        boolean isGitRepo = false;
-        if( file.isDirectory() ) {
-            List<File> gitRepos = Arrays.stream( file.listFiles() )
-                    .filter( f -> f.getName().equals(".git") )
-                    .collect( Collectors.toList() );
-            if( gitRepos.size() > 0 )
-                isGitRepo = true;
-        }
-        return isGitRepo;
-    }
-
-    /*******************/
-
-    private int gitStatus( File file ) {
-        AtomicInteger dirtyFiles = new AtomicInteger();
-        ProcessBuilder builder = new ProcessBuilder()
-                .command( "git", "status", "-s" )
-                .directory( file );
-        try {
-            Process process = builder.start();
-            StreamGobbler streamGobbler = new StreamGobbler( process.getInputStream(), s -> dirtyFiles.getAndIncrement());
-            Executors.newSingleThreadExecutor().submit( streamGobbler );
-            int exitCode = process.waitFor();
-            assert exitCode == 0;
-        } catch (IOException | InterruptedException e) {
-            e.printStackTrace(); // TODO do better than this.
-        }
-        return dirtyFiles.get();
-    }
-
-    private boolean gitRemote( File file ) {
-        AtomicBoolean hasNoRemote = new AtomicBoolean( true );
-        ProcessBuilder builder = new ProcessBuilder()
-                .command( "git", "remote" )
-                .directory( file );
-        try {
-            Process process = builder.start();
-            StreamGobbler streamGobbler = new StreamGobbler( process.getInputStream(), s -> {
-                if( s != null && !s.isEmpty() ) {
-                    hasNoRemote.getAndSet( false );
-                }
-            } );
-            Executors.newSingleThreadExecutor().submit( streamGobbler );
-            int exitCode = process.waitFor();
-            assert exitCode == 0;
-        } catch (IOException | InterruptedException e ) {
-
-        }
-        return hasNoRemote.get();
+    /** Resolved in {@code call()}, after picocli has injected the option; a field initializer would run too early. */
+    Path resolveRoot() {
+        Path path = Path.of(directory);
+        return (path.isAbsolute() ? path : home.resolve(path)).normalize();
     }
 }
-
