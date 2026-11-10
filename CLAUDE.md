@@ -19,8 +19,11 @@ GraalVM and distributed via GitHub Releases.
   - `RepoFinder` walks the tree (`Files.walkFileTree`, no symlinks, depth cap,
     skip list). The only class that touches the filesystem walk.
   - `process/CommandRunner` + `ProcessCommandRunner`: the only class that
-    touches `ProcessBuilder`. Tests use `FakeCommandRunner`.
-  - `Git` + `ProcessGit`: runs `git status --porcelain` / `git remote` and
+    touches `ProcessBuilder`. Drains stdout/stderr on daemon threads, kills
+    the child after a 30 s timeout (`CommandTimeoutException`). Tests use
+    `FakeCommandRunner`. `TracingCommandRunner` decorates it for `--verbose`.
+  - `Git` + `ProcessGit`: `version()` is the `git --version` preflight (fails →
+    exit 2); `inspect()` runs `git status --porcelain` / `git remote` and
     parses them into `RepoStatus(modified, untracked, hasRemote)`. Non-zero
     exit or I/O failure → `GitException`.
   - `Scanner` → `ScanResult(root, List<RepoReport>)`; a `RepoReport` carries
@@ -73,8 +76,10 @@ the fixes are sequenced in `specs/001` onward. Headline items:
   hard-codes a throwaway keychain password; nothing calls it any more. It is
   rewritten in spec 007 together with `release.yml`, which still uses the
   archived `create-release`/`upload-release-asset` actions.
-- Not yet done from spec 004: per-call git timeout, `git --version` preflight,
-  `--verbose`, `--exit-code`. Errors already surface as `error:` rows and exit 1.
+- Exit codes: 0 / 1 (repos that could not be inspected, or with `--exit-code`
+  anything needing attention) / 2 (usage, git missing) / 130 (interrupted);
+  see `App`'s `exitCodeList`. SIGINT itself is handled by the runtime; 130 from
+  `App` covers programmatic interruption (spec 006 will rely on it).
 - No `--format`/`--color` options yet (spec 005); `TextReporter` uses picocli
   `Ansi.AUTO`, so colors are off when piped or `NO_COLOR` is set.
 - The `adding-tests` branch is superseded by the spec 003 refactor and can be

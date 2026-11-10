@@ -10,6 +10,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ScannerTest {
@@ -24,7 +25,7 @@ class ScannerTest {
     }
 
     @Test
-    void collectsStatusesAndErrorsSortedByRelativePath() throws IOException {
+    void collectsStatusesAndErrorsSortedByRelativePath() throws Exception {
         Path zeta = repo("zeta");
         Path alpha = repo("group/alpha");
         Path broken = repo("broken");
@@ -45,7 +46,7 @@ class ScannerTest {
     }
 
     @Test
-    void cleanRepositoriesAreStillReportedButNeedNoAttention() throws IOException {
+    void cleanRepositoriesAreStillReportedButNeedNoAttention() throws Exception {
         Path clean = repo("clean");
 
         ScanResult result = new Scanner(new RepoFinder(), new FakeGit().status(clean, 0, 0, true)).scan(root, w -> {});
@@ -56,12 +57,27 @@ class ScannerTest {
     }
 
     @Test
-    void rootThatIsItselfARepositoryGetsAnEmptyRelativePath() throws IOException {
+    void rootThatIsItselfARepositoryGetsAnEmptyRelativePath() throws Exception {
         Files.createDirectories(root.resolve(".git"));
 
         ScanResult result = new Scanner(new RepoFinder(), new FakeGit().status(root, 0, 2, true)).scan(root, w -> {});
 
         assertEquals(1, result.reports().size());
         assertEquals(".", result.reports().get(0).displayName());
+    }
+
+    @Test
+    void anInterruptedInspectionAbortsTheScanAndKeepsTheInterruptVisible() throws IOException {
+        Path first = repo("a-first");
+        Path second = repo("b-second");
+        FakeGit git = new FakeGit().status(first, 1, 0, true).interruptingAt(second);
+
+        boolean flagged;
+        try {
+            assertThrows(InterruptedException.class, () -> new Scanner(new RepoFinder(), git).scan(root, w -> {}));
+        } finally {
+            flagged = Thread.interrupted();
+        }
+        assertFalse(flagged, "Scanner clears the flag, as InterruptedException convention requires; App re-sets it");
     }
 }

@@ -18,6 +18,8 @@ dirty                         # scan ~/Projects (the git-grab default)
 dirty -d Code                 # scan ~/Code
 dirty -d /srv/repos           # scan an absolute path
 dirty --max-depth 2           # only look two directory levels down (default 4)
+dirty --exit-code             # exit 1 if anything needs attention (for scripts and prompts)
+dirty -v                      # show every git command and a summary on stderr
 ```
 
 Example output:
@@ -35,7 +37,11 @@ any warnings go to stderr, so stdout is safe to pipe. Colors are disabled
 automatically when output is not a terminal or `NO_COLOR` is set.
 
 Exit status: `0` all repositories inspected, `1` one or more could not be
-inspected (shown as `error:` lines), `2` usage error.
+inspected (shown as `error:` lines), `2` usage error or git not on PATH, `130`
+interrupted. With `--exit-code`, `1` also means at least one repository needs
+attention, so `dirty --exit-code -d Code && echo all clean` works as a check.
+Each git call is given 30 seconds; a wedged repository is reported as an
+`error:` line instead of hanging the scan.
 
 ## Um, Why?
 

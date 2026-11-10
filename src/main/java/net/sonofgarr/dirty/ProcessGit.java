@@ -20,9 +20,15 @@ public final class ProcessGit implements Git {
     }
 
     @Override
+    public String version(Path directory) throws GitException {
+        return run(directory, Map.of(), "--version").lines().findFirst().orElse("git (unknown version)").strip();
+    }
+
+    @Override
     public RepoStatus inspect(Path repository) throws GitException {
-        String status = run(repository, "status", "--porcelain");
-        String remotes = run(repository, "remote");
+        Map<String, String> env = environmentFor(repository);
+        String status = run(repository, env, "--no-optional-locks", "status", "--porcelain");
+        String remotes = run(repository, env, "--no-optional-locks", "remote");
 
         int modified = 0;
         int untracked = 0;
@@ -41,22 +47,22 @@ public final class ProcessGit implements Git {
         return new RepoStatus(modified, untracked, hasRemote);
     }
 
-    private String run(Path repository, String... args) throws GitException {
+    /** {@code --no-optional-locks} on the status/remote calls keeps a read-only scan from ever writing the index. */
+    private String run(Path directory, Map<String, String> environment, String... args) throws GitException {
         List<String> command = new ArrayList<>();
         command.add("git");
-        command.add("--no-optional-locks"); // never write the index from a read-only scan
         command.addAll(List.of(args));
         try {
-            CommandResult result = runner.run(repository, command, environmentFor(repository));
+            CommandResult result = runner.run(directory, command, environment);
             if (!result.succeeded()) {
-                throw new GitException(repository, result.exitCode(), result.stderr());
+                throw new GitException(directory, result.exitCode(), result.stderr());
             }
             return result.stdout();
         } catch (IOException e) {
-            throw new GitException(repository, e);
+            throw new GitException(directory, e);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new GitException(repository, e);
+            throw new GitException(directory, e);
         }
     }
 

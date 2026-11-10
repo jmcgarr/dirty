@@ -104,4 +104,12 @@ class ProcessGitIT {
         assertEquals(128, e.exitCode());
         assertTrue(e.getMessage().contains("not a git repository"), e.getMessage());
     }
+
+    @Test
+    void versionPreflightWorksAgainstRealGit() throws Exception {
+        String version = new ProcessGit(runner).version(tmp);
+
+        assertTrue(version.startsWith("git version "), version);
+        assertEquals(1, version.lines().count());
+    }
 }
