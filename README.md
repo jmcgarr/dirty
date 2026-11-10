@@ -43,6 +43,10 @@ attention, so `dirty --exit-code -d Code && echo all clean` works as a check.
 Each git call is given 30 seconds; a wedged repository is reported as an
 `error:` line instead of hanging the scan.
 
+## License
+
+Apache License 2.0; see [LICENSE](LICENSE).
+
 ## Um, Why?
 
 Glad you asked. So many reasons:

@@ -131,7 +131,7 @@ because it touches a workflow and a secret.
 class Dirty < Formula
   desc "Find git checkouts with uncommitted changes, untracked files, or no remote"
   homepage "https://github.com/jmcgarr/dirty"
-  license "TBD"   # must match the LICENSE file added to jmcgarr/dirty (open question 1)
+  license "Apache-2.0"
 
   livecheck do
     url :stable
@@ -218,8 +218,7 @@ latter partially: Windows stays open).
 ## Scope
 
 **In:** `build.gradle` version generation, `App.java`, `AppTest.java`,
-`release.yml`, README Installation + TODOs, `LICENSE` file (text chosen by the
-maintainer), this spec's first-release procedure, `Formula/dirty.rb` and a
+`release.yml`, README Installation + TODOs, this spec's first-release procedure, `Formula/dirty.rb` and a
 README row in `jmcgarr/homebrew-tap` (separate PR there).
 **Out:** signing, notarization, `codesign.yml`, Windows, macOS Intel and
 Linux aarch64 legs, `build-native.yml`, nightly artifacts (all 007); changes
@@ -240,7 +239,8 @@ to the tap's scripts or workflows.
   jmcgarr/tap/dirty` passes.
 - `gh workflow run update-formula.yml ... -f formula=dirty -f tag=vX.Y.Z`
   from a release run results in a bot commit `dirty X.Y.Z` on the tap's `main`.
-- A `LICENSE` file exists and matches the formula's `license` line.
+- A `LICENSE` file exists (Apache-2.0, added 2026-11-09) and matches the
+  formula's `license` line.
 
 ## Risks
 
@@ -265,7 +265,8 @@ to the tap's scripts or workflows.
 1. **License.** None exists, and the tap requires one. Recommendation: pick
    whichever the maintainer prefers (git-grab uses Apache-2.0, so matching it
    keeps the tap uniform); add `LICENSE` in this PR and use the same SPDX id
-   in `Formula/dirty.rb`. Not chosen here.
+   in `Formula/dirty.rb`. **Decided 2026-11-09: Apache-2.0** (shipped
+   separately; the formula's `license` line is `"Apache-2.0"`).
 2. **macOS Intel / Linux aarch64 legs.** Recommendation: no for the first
    release; Intel runners are being retired and neither platform has a known
    user. Adding a leg later is one matrix row plus one `on_*` block.
