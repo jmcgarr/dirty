@@ -1,6 +1,14 @@
 # 007 – Release pipeline: multi-platform binaries, signing, Homebrew
 
-**Size:** L (mostly maintainer decisions)  **Depends on:** 002 (native plugin, Java level)  **Independent of:** 003–006
+**Size:** L (mostly maintainer decisions)  **Depends on:** 002 (native plugin, Java level), 009  **Independent of:** 003–006
+
+> **Narrowed 2026-11-09.** Spec 009 shipped the release pipeline (`release.yml`
+> with Linux x86_64 and macOS aarch64 legs, `SHA256SUMS`, `gh release create`,
+> version from the tag) and the Homebrew tap. What remains here: the Windows
+> leg, Developer ID signing and notarization, the fate of `codesign.yml`,
+> optional macOS Intel / Linux aarch64 legs, and extracting a reusable
+> `build-native.yml` once there are more legs than callers. Sections below
+> describe the pre-009 state where they talk about `release.yml`.
 
 ## Problem / Motivation
 
