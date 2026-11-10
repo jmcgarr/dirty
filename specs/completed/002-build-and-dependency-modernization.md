@@ -131,3 +131,5 @@ macOS, which blocks spec 007.
   `nativeTest` and JDK 21 dynamic-agent warnings.
 - Dependabot added for Gradle and GitHub Actions (weekly, grouped).
 - Gradle 8.6 → 9.x stays a separate chore.
+
+**Shipped in:** https://github.com/jmcgarr/dirty/pull/3 (merged 2026-11-08). Mockito was subsequently dropped in the spec 003 PR per maintainer decision.

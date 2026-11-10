@@ -164,4 +164,4 @@ Later, unscheduled: "how far behind remote" (`git rev-list --left-right --count
 11. Color via picocli's built-in `Ansi`; retire `ANSICode`.
 12. Virtual threads for parallel scanning, no default job cap.
 13. Dependabot for Gradle and Actions added.
-14. **Open:** drop Mockito or keep it pinned at 5.x. Pinned at 5.24.0 for now.
+14. Mockito dropped (2026-11-08); tests use hand-written fakes.

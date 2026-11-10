@@ -84,3 +84,5 @@ multi-platform matrix (007).
 - Step-level codesign call removed; signing lives in release (spec 007).
 - `release.yml` received only the action/JDK/path bumps needed to keep it
   from breaking; its rewrite remains spec 007.
+
+**Shipped in:** https://github.com/jmcgarr/dirty/pull/3 (merged 2026-11-08). First green Build run: 42397080410.

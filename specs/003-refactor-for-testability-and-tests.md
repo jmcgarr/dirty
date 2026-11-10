@@ -111,3 +111,37 @@ maintainer action after merge.
   separately and the text line reads "N modified, M untracked" (omit a zero
   term). Supersedes the "changed files" wording above.
 - Java 21: use records; no Mockito in the new tests (hand-written fakes).
+
+## Implementation notes (2026-11-08)
+
+PR: https://github.com/jmcgarr/dirty/pull/6
+
+- Layout: `App`, `Scanner`, `RepoFinder`, `Git`/`ProcessGit`/`GitException`,
+  `RepoStatus`/`RepoReport`/`ScanResult`, `Reporter`/`TextReporter`, and
+  `process/CommandRunner`/`CommandResult`/`ProcessCommandRunner`.
+  `StreamGobbler` and the `adding-tests` `ANSICode` are gone; colors come from
+  picocli `Help.Ansi` (decision 11), `Ansi.AUTO` in production.
+- Pulled forward from spec 004 because they fell out naturally: stdout read to
+  EOF on the caller thread and stderr drained on a daemon thread (fixes the
+  lost-output race, the hang, and the executor leak); `--no-optional-locks`;
+  non-zero exit → `GitException` → `error:` row and exit 1; `-d` to a missing
+  directory → picocli usage error, exit 2. Still for 004: per-call timeout,
+  `git --version` preflight, `--verbose`, `--exit-code`.
+- Tests: 47 (7 classes). `ProcessGitIT` is tagged `integration` and skips
+  itself when git is not on PATH or is older than 2.32 (verified with a
+  stripped PATH: 3 skipped, 0 failures). `nativeTest` runs the suite inside a
+  native image (44 pass; the 3 tests that need a JDK launcher abort on an
+  assumption).
+- Fixed from code review before merge: a symlinked scan root (common on macOS)
+  was treated as a leaf and found nothing; a bogus `.git` let git climb into an
+  ancestor repository (now `GIT_CEILING_DIRECTORIES` per call, inherited
+  `GIT_DIR`/`GIT_WORK_TREE` dropped); repo names and git messages were parsed as
+  picocli markup (now styled programmatically); hidden root dropped at
+  `--max-depth 0`; child process destroyed on interrupt.
+  Needed `--initialize-at-build-time=org.junit.platform.engine.TestTag` on the
+  test binary. CI now runs `nativeCompile nativeTest`.
+- JaCoCo: 92 % instructions / 91 % branches overall.
+- Output vs `master`: same repositories, now sorted by path; counts split into
+  "N modified, M untracked"; header on stderr; ANSI bytes differ (picocli emits
+  `ESC[39m ESC[0m` as the reset) but render identically.
+
