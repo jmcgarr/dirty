@@ -32,6 +32,11 @@ dirty -d /srv/repos           # scan an absolute path
 dirty --max-depth 2           # only look two directory levels down (default 4)
 dirty --exit-code             # exit 1 if anything needs attention (for scripts and prompts)
 dirty -v                      # show every git command and a summary on stderr
+dirty -f table                # aligned columns instead of one line per repo
+dirty -f json | jq '.repos[] | select(.dirty)'
+dirty -f csv > repos.csv
+dirty --all                   # include clean repositories (text and table)
+dirty --no-color              # plain text even on a terminal; --color forces colors on
 ```
 
 Example output:
@@ -46,14 +51,54 @@ Hidden directories and `node_modules`, `build`, `target`, `.gradle` are
 skipped; symbolic links are not followed; a repository's contents are not
 searched for nested repositories. The "Finding dirty git repos in …" banner and
 any warnings go to stderr, so stdout is safe to pipe. Colors are disabled
-automatically when output is not a terminal or `NO_COLOR` is set.
+automatically when output is not a terminal or `NO_COLOR` is set; `--color`
+and `--no-color` override that either way.
+
+### Output formats
+
+`text` (the default) and `table` show only repositories that need attention
+unless `--all` is given. `json` and `csv` always list every repository found,
+never use colors, and use `\n` line endings on every platform. The JSON
+document looks like this:
+
+```json
+{
+  "version": 1,
+  "root": "/Users/me/Projects",
+  "repos": [
+    {
+      "path": "github/jmcgarr/dirty",
+      "dirty": true,
+      "modified": 6,
+      "untracked": 11,
+      "hasRemote": true,
+      "error": null
+    },
+    {
+      "path": "github/jmcgarr/broken",
+      "dirty": null,
+      "modified": null,
+      "untracked": null,
+      "hasRemote": null,
+      "error": "fatal: bad object HEAD"
+    }
+  ]
+}
+```
+
+`dirty` is true when there are changed files or no remote. A repository that
+could not be inspected has `error` set and the other fields `null`. The shape
+is a contract: `version` is `1`; keys are never removed or renamed within a
+version, new keys may be added, and a breaking change bumps `version`. The CSV
+header is `path,dirty,modified,untracked,hasRemote,error` with the same values
+(empty cells on error rows) and RFC 4180 quoting.
 
 Exit status: `0` all repositories inspected, `1` one or more could not be
-inspected (shown as `error:` lines), `2` usage error or git not on PATH, `130`
+inspected (`error:` lines in text output, an `error` column or field in the others), `2` usage error or git not on PATH, `130`
 interrupted. With `--exit-code`, `1` also means at least one repository needs
 attention, so `dirty --exit-code -d Code && echo all clean` works as a check.
 Each git call is given 30 seconds; a wedged repository is reported as an
-`error:` line instead of hanging the scan.
+error instead of hanging the scan.
 
 ## License
 
@@ -103,8 +148,8 @@ This project is very nascent and lots of work is needed before it should taken s
 **Features**
 
 - [X] Add tests
-- [ ] Make output tabular (optional?)   
-- [ ] Option to output machine readable formats (csv, json)  
+- [X] Make output tabular (optional?)   
+- [X] Option to output machine readable formats (csv, json)  
 - [ ] Add better stdout/stderr (logging perhaps)
 - [ ] Parallelize the scanning of git repos  
 - [ ] Check to see how far behind each repository is (this should be an option)

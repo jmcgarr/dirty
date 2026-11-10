@@ -48,6 +48,20 @@ public class App implements Callable<Integer> {
             description = "How many directory levels below the root to search (default: ${DEFAULT-VALUE}).")
     int maxDepth = RepoFinder.DEFAULT_MAX_DEPTH;
 
+    @Option(names = {"-f", "--format"}, paramLabel = "<format>", defaultValue = "text",
+            description = "Output format: ${COMPLETION-CANDIDATES} (default: ${DEFAULT-VALUE}).")
+    Format format;
+
+    @Option(names = "--all",
+            description = "Include clean repositories (text and table; json and csv always list every repository).")
+    boolean all;
+
+    @Option(names = "--color", description = "Force ANSI colors on, even when piped.")
+    boolean color;
+
+    @Option(names = "--no-color", description = "Force ANSI colors off (NO_COLOR and a non-terminal stdout already do this).")
+    boolean noColor;
+
     @Option(names = "--exit-code",
             description = "Exit 1 when any repository needs attention, like git diff --exit-code.")
     boolean exitCode;
@@ -56,27 +70,54 @@ public class App implements Callable<Integer> {
             description = "Show every git command, its exit status, and a summary on stderr.")
     boolean verbose;
 
+    /** Output formats, in the spelling {@code --format} accepts. */
+    enum Format { text, table, json, csv }
+
+    /** Builds the reporter once the options are parsed; tests substitute a fixed {@link Reporter}. */
+    interface ReporterFactory {
+        Reporter create(Format format, Ansi ansi, boolean all);
+    }
+
     private final Path home;
     private final Function<Consumer<String>, Git> gitFactory;
-    private final Reporter reporter;
+    private final ReporterFactory reporterFactory;
 
     /** Production wiring. */
     public App() {
         this(Path.of(System.getProperty("user.home")),
                 trace -> new ProcessGit(new TracingCommandRunner(new ProcessCommandRunner(), trace)),
-                new TextReporter(Ansi.AUTO));
+                App::reporter);
     }
 
-    /** Test wiring with a ready-made {@link Git}. */
+    /** Test wiring with a ready-made {@link Git} and the real format selection. */
+    App(Path home, Git git) {
+        this(home, trace -> git, App::reporter);
+    }
+
+    /** Test wiring with a ready-made {@link Git} and a fixed reporter, whatever the options say. */
     App(Path home, Git git, Reporter reporter) {
-        this(home, trace -> git, reporter);
+        this(home, trace -> git, (format, ansi, all) -> reporter);
     }
 
-    /** Test wiring; the factory receives the sink that {@code --verbose} writes to. */
+    /** Test wiring with a fixed reporter; the factory receives the sink that {@code --verbose} writes to. */
     App(Path home, Function<Consumer<String>, Git> gitFactory, Reporter reporter) {
+        this(home, gitFactory, (format, ansi, all) -> reporter);
+    }
+
+    private App(Path home, Function<Consumer<String>, Git> gitFactory, ReporterFactory reporterFactory) {
         this.home = home;
         this.gitFactory = gitFactory;
-        this.reporter = reporter;
+        this.reporterFactory = reporterFactory;
+    }
+
+    /** The one place a format name becomes a reporter. Machine formats never emit ANSI. */
+    static Reporter reporter(Format format, Ansi ansi, boolean all) {
+        return switch (format) {
+            case text -> new TextReporter(ansi, all);
+            case table -> new TableReporter(ansi, all);
+            case json -> new JsonReporter();
+            case csv -> new CsvReporter();
+        };
     }
 
     public static void main(String[] args) {
@@ -88,6 +129,11 @@ public class App implements Callable<Integer> {
         if (maxDepth < 0) {
             throw new ParameterException(spec.commandLine(), "--max-depth must be >= 0");
         }
+        if (color && noColor) {
+            throw new ParameterException(spec.commandLine(), "--color and --no-color are mutually exclusive");
+        }
+        Ansi ansi = color ? Ansi.ON : noColor ? Ansi.OFF : Ansi.AUTO;
+        Reporter reporter = reporterFactory.create(format, ansi, all);
         Path root = resolveRoot();
         if (!Files.isDirectory(root)) {
             throw new ParameterException(spec.commandLine(), "Not a directory: " + root);
