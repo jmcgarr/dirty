@@ -2,7 +2,10 @@ package net.sonofgarr.dirty;
 
 import org.junit.jupiter.api.Test;
 
+import net.sonofgarr.dirty.process.CommandTimeoutException;
+
 import java.io.IOException;
+import java.time.Duration;
 import java.nio.file.Path;
 import java.util.List;
 
@@ -101,5 +104,30 @@ class ProcessGitTest {
         assertTrue(env.containsKey("GIT_DIR") && env.get("GIT_DIR") == null, "GIT_DIR must be unset");
         assertNull(env.get("GIT_WORK_TREE"));
         assertTrue(env.containsKey("GIT_WORK_TREE"));
+    }
+
+    @Test
+    void versionIsTheFirstLineOfGitVersion() throws GitException {
+        runner.on("--version", "git version 2.47.1\nextra\n");
+
+        assertEquals("git version 2.47.1", git.version(repo));
+        assertEquals(List.of("git", "--version"), runner.invocations.get(0));
+    }
+
+    @Test
+    void missingGitSurfacesFromVersionAsAGitExceptionThatDidNotRun() {
+        runner.failingWith(new IOException("Cannot run program \"git\": error=2, No such file or directory"));
+
+        GitException e = assertThrows(GitException.class, () -> git.version(repo));
+        assertEquals(-1, e.exitCode());
+    }
+
+    @Test
+    void timeoutBecomesAGitExceptionNamingTheLimit() {
+        runner.failingWith(CommandTimeoutException.killed(List.of("git", "status"), Duration.ofSeconds(30)));
+
+        GitException e = assertThrows(GitException.class, () -> git.inspect(repo));
+        assertEquals("git timed out after 30s", e.getMessage());
+        assertEquals(-1, e.exitCode());
     }
 }

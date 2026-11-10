@@ -100,3 +100,37 @@ execution (006).
   affects the exit status.
 - Default per-call git timeout 30 s.
 - Add `--verbose` in this spec.
+
+## Implementation notes (2026-11-09)
+
+Spec 003 already delivered the joined stdout/stderr drains, `--no-optional-locks`,
+`GitException` → `error:` rows, `ParameterException` for a bad root, and
+diagnostics on stderr. This PR adds the rest:
+
+- `ProcessCommandRunner(env, Duration timeout)`, default 30 s. Both streams are
+  drained on daemon threads; `waitFor(timeout)` then `destroyForcibly()` and
+  `CommandTimeoutException` (an `IOException`, message `git timed out after 30s`),
+  which `ProcessGit` turns into a `GitException` so the repo shows as an
+  `error:` row and the scan continues. After exit or kill the pipes get a 2 s
+  grace: a grandchild holding stdout is reported (`exited with status N but
+  its output stayed open`) rather than waited for, and a child in
+  uninterruptible sleep that ignores SIGKILL cannot hang the scan either.
+- `Git.version(Path)` / `ProcessGit.version(Path)`: `git --version` preflight
+  in `App`, run in the validated scan root, before the header. Fails → one
+  stderr line (`dirty: could not run git: …` when git did not run,
+  `dirty: git --version failed: …` otherwise), exit 2.
+- `--exit-code`: exit 1 when any repository `needsAttention()` (changes or no
+  remote, i.e. anything printed), 0 otherwise; errors still exit 1.
+- `-v`/`--verbose`: `TracingCommandRunner` decorator prints `$ git …  (in dir)`
+  and `exit N in M ms` per call; `App` also prints the git version and
+  `N repositories, M dirty, K errors` (disjoint counts). All on stderr. No
+  logging framework.
+- `Scanner.scan` now throws `InterruptedException` when an inspection was
+  interrupted; `App` re-sets the flag, prints `dirty: interrupted`, exits 130.
+  SIGINT on the process is still the runtime's default (128+2 = 130).
+- `--help` lists the exit codes (picocli `exitCodeList`).
+- `grep -r "assert " src/main` is empty; drain threads are named `dirty-*` and
+  a test asserts none survive a call.
+- Dropped from the spec: a `ScannerTest` thread-count assertion (covered by the
+  runner-level test) and "retries" (out of scope as written).
+

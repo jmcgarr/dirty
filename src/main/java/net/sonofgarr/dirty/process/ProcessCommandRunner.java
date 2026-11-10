@@ -4,28 +4,50 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * {@link CommandRunner} backed by {@link ProcessBuilder}.
  *
- * <p>stdout is read to EOF on the calling thread and stderr is drained on a
- * daemon thread; both finish before the result is built, so no output is lost
- * and a chatty child cannot block on a full pipe.
+ * <p>stdout and stderr are each drained to EOF on a daemon thread, so a chatty
+ * child can never block on a full pipe, and both drains finish before the result
+ * is built, so no output is lost. A child that outlives the timeout is killed
+ * and reported as a {@link CommandTimeoutException}.
  */
 public final class ProcessCommandRunner implements CommandRunner {
 
+    /** Long enough for {@code git status} on a huge cold checkout; short enough that a wedged git does not hang the scan. */
+    public static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(30);
+
+    /**
+     * How long to wait for pipes to close after the child has exited or been
+     * killed. A child in uninterruptible sleep (dead network mount) ignores
+     * SIGKILL, and a grandchild may keep the pipe open; neither may hang us.
+     */
+    static final Duration GRACE = Duration.ofSeconds(2);
+
     private final Map<String, String> environment;
+    private final Duration timeout;
 
     public ProcessCommandRunner() {
-        this(Map.of());
+        this(Map.of(), DEFAULT_TIMEOUT);
     }
 
     /** @param environment extra variables layered over the inherited environment. */
     public ProcessCommandRunner(Map<String, String> environment) {
+        this(environment, DEFAULT_TIMEOUT);
+    }
+
+    public ProcessCommandRunner(Map<String, String> environment, Duration timeout) {
+        if (timeout.isNegative() || timeout.isZero()) {
+            throw new IllegalArgumentException("timeout must be positive: " + timeout);
+        }
         this.environment = Map.copyOf(environment);
+        this.timeout = timeout;
     }
 
     @Override
@@ -44,32 +66,72 @@ public final class ProcessCommandRunner implements CommandRunner {
         Process process = builder.start();
         process.getOutputStream().close();
 
-        AtomicReference<byte[]> stderr = new AtomicReference<>(new byte[0]);
-        Thread drain = new Thread(() -> {
-            try (InputStream err = process.getErrorStream()) {
-                stderr.set(err.readAllBytes());
-            } catch (IOException ignored) {
-                // The process is gone; whatever we have is all there is.
-            }
-        }, "dirty-stderr-drain");
-        drain.setDaemon(true);
-        drain.start();
+        Drain stdout = Drain.start(process.getInputStream(), "dirty-stdout-drain");
+        Drain stderr = Drain.start(process.getErrorStream(), "dirty-stderr-drain");
 
-        byte[] stdout;
-        int exitCode;
         try {
-            try (InputStream out = process.getInputStream()) {
-                stdout = out.readAllBytes();
+            if (!process.waitFor(timeout.toNanos(), TimeUnit.NANOSECONDS)) {
+                kill(process, stdout, stderr);
+                throw CommandTimeoutException.killed(command, timeout);
             }
-            exitCode = process.waitFor();
-            drain.join();
+            // The child has exited; its pipes close with it unless a grandchild
+            // inherited them. Give the drains a short grace, not the whole timeout again.
+            long deadline = System.nanoTime() + GRACE.toNanos();
+            if (!stdout.join(deadline) || !stderr.join(deadline)) {
+                throw CommandTimeoutException.outputStillOpen(command, process.exitValue(), GRACE);
+            }
         } catch (InterruptedException e) {
-            process.destroyForcibly();
+            kill(process, stdout, stderr);
             throw e;
         }
 
-        return new CommandResult(exitCode,
-                new String(stdout, StandardCharsets.UTF_8),
-                new String(stderr.get(), StandardCharsets.UTF_8));
+        return new CommandResult(process.exitValue(),
+                new String(stdout.bytes(), StandardCharsets.UTF_8),
+                new String(stderr.bytes(), StandardCharsets.UTF_8));
+    }
+
+    /** Best effort: a process stuck in the kernel may ignore SIGKILL, so never wait on it unboundedly. */
+    private static void kill(Process process, Drain stdout, Drain stderr) throws InterruptedException {
+        process.destroyForcibly();
+        long deadline = System.nanoTime() + GRACE.toNanos();
+        process.waitFor(GRACE.toNanos(), TimeUnit.NANOSECONDS);
+        stdout.join(deadline);
+        stderr.join(deadline);
+    }
+
+    /** Reads one stream to EOF on a daemon thread. */
+    private static final class Drain {
+        private final Thread thread;
+        private final AtomicReference<byte[]> bytes = new AtomicReference<>(new byte[0]);
+
+        private Drain(InputStream stream, String name) {
+            this.thread = new Thread(() -> {
+                try (stream) {
+                    bytes.set(stream.readAllBytes());
+                } catch (IOException ignored) {
+                    // The process is gone; whatever we have is all there is.
+                }
+            }, name);
+            thread.setDaemon(true);
+        }
+
+        static Drain start(InputStream stream, String name) {
+            Drain drain = new Drain(stream, name);
+            drain.thread.start();
+            return drain;
+        }
+
+        /** @return false if the stream was still open at the deadline */
+        boolean join(long deadlineNanos) throws InterruptedException {
+            long remaining = deadlineNanos - System.nanoTime();
+            if (remaining > 0) {
+                thread.join(Duration.ofNanos(remaining));
+            }
+            return !thread.isAlive();
+        }
+
+        byte[] bytes() {
+            return bytes.get();
+        }
     }
 }

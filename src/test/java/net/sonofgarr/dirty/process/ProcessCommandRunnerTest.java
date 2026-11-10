@@ -8,10 +8,13 @@ import org.junit.jupiter.api.io.TempDir;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
@@ -88,5 +91,56 @@ class ProcessCommandRunnerTest {
 
         assertTrue(result.stdout().startsWith(dir.toRealPath().toString()), result.stdout());
         assertTrue(result.stdout().endsWith("hello-call-unset"), result.stdout());
+    }
+
+    @Test
+    @DisabledOnOs(OS.WINDOWS)
+    void killsAndReportsACommandThatOutlivesTheTimeout() {
+        ProcessCommandRunner impatient = new ProcessCommandRunner(Map.of(), Duration.ofMillis(300));
+        long started = System.nanoTime();
+
+        IOException e = assertThrows(IOException.class, () -> impatient.run(dir, List.of("sh", "-c", "exec sleep 30")));
+
+        long elapsedMillis = (System.nanoTime() - started) / 1_000_000;
+        assertInstanceOf(CommandTimeoutException.class, e);
+        assertEquals("sh timed out after 300ms", e.getMessage());
+        assertTrue(elapsedMillis < 5_000, "took " + elapsedMillis + " ms; the child was not killed");
+        assertEquals(0, liveDrainThreads(), "drains must be joined even on the timeout path");
+    }
+
+    @Test
+    @DisabledOnOs(OS.WINDOWS)
+    void aGrandchildHoldingThePipeIsReportedNotWaitedForForever() {
+        ProcessCommandRunner impatient = new ProcessCommandRunner(Map.of(), Duration.ofMillis(300));
+        long started = System.nanoTime();
+
+        // The shell exits 0 at once; the backgrounded sleep inherits and holds stdout.
+        IOException e = assertThrows(IOException.class, () -> impatient.run(dir, List.of("sh", "-c", "(sleep 30 &); exit 0")));
+
+        long elapsedMillis = (System.nanoTime() - started) / 1_000_000;
+        assertInstanceOf(CommandTimeoutException.class, e);
+        assertTrue(e.getMessage().startsWith("sh exited with status 0 but its output stayed open"), e.getMessage());
+        assertTrue(elapsedMillis < 10_000, "took " + elapsedMillis + " ms");
+    }
+
+    private static long liveDrainThreads() {
+        return Thread.getAllStackTraces().keySet().stream()
+                .filter(t -> t.getName().startsWith("dirty-") && t.isAlive())
+                .count();
+    }
+
+    @Test
+    @DisabledOnOs(OS.WINDOWS)
+    void leavesNoDrainThreadsBehind() throws Exception {
+        long before = liveDrainThreads();
+
+        runner.run(dir, List.of("sh", "-c", "echo out; echo err 1>&2"));
+
+        assertEquals(before, liveDrainThreads());
+    }
+
+    @Test
+    void rejectsANonPositiveTimeout() {
+        assertThrows(IllegalArgumentException.class, () -> new ProcessCommandRunner(Map.of(), Duration.ZERO));
     }
 }

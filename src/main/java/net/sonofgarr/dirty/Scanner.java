@@ -18,13 +18,20 @@ public final class Scanner {
         this.git = git;
     }
 
-    public ScanResult scan(Path root, Consumer<String> warn) throws IOException {
+    /**
+     * @throws InterruptedException if the thread was interrupted while a repository
+     *                              was being inspected; the partial result is discarded
+     */
+    public ScanResult scan(Path root, Consumer<String> warn) throws IOException, InterruptedException {
         List<RepoReport> reports = new ArrayList<>();
         for (Path repo : finder.find(root, warn)) {
             Path relative = root.relativize(repo);
             try {
                 reports.add(RepoReport.of(relative, git.inspect(repo)));
             } catch (GitException e) {
+                if (Thread.interrupted()) {
+                    throw new InterruptedException("interrupted while inspecting " + repo);
+                }
                 reports.add(RepoReport.failed(relative, e.getMessage()));
             }
         }
