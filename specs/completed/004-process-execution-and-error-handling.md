@@ -134,3 +134,5 @@ diagnostics on stderr. This PR adds the rest:
 - Dropped from the spec: a `ScannerTest` thread-count assertion (covered by the
   runner-level test) and "retries" (out of scope as written).
 
+
+**Shipped in:** https://github.com/jmcgarr/dirty/pull/10 (merged 2026-11-09).
