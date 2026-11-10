@@ -69,3 +69,134 @@ drawing; streaming output.
   retire `util/ANSICode`.
 - Per spec 003, repo objects carry `modified` and `untracked` counts rather
   than a single `changedFiles`.
+
+## Implementation notes (2026-11-09)
+
+Specs 003/004 already delivered `Reporter`, `TextReporter(Ansi)` on picocli's
+`ColorScheme`, `RepoStatus(modified, untracked, hasRemote)`,
+`RepoReport(relativePath, status, error)`, `ScanResult(root, reports)` and
+removed `util/ANSICode`. These notes pin what is left and override the
+"Proposed approach" where they differ.
+
+### Options and wiring (`App`)
+
+- `enum Format { text, table, json, csv }` nested in `App` (lowercase so help
+  shows the literal values). `@Option(names = {"-f", "--format"}, paramLabel =
+  "<format>", defaultValue = "text", description = "Output format:
+  ${COMPLETION-CANDIDATES} (default: ${DEFAULT-VALUE}).")`. Case-sensitive
+  (picocli default): `-f JSON` is a usage error, exit 2.
+- `--all` (`boolean all`): "Include clean repositories (text and table; json
+  and csv always list every repository)." Accepted as a no-op for json/csv so
+  a shell alias carrying `--all` works with every format.
+- `--color` / `--no-color`: two plain `boolean` options; both given →
+  `ParameterException` ("--color and --no-color are mutually exclusive", exit
+  2) in `call()` beside the `--max-depth` check. `--color` → `Ansi.ON`,
+  `--no-color` → `Ansi.OFF`, neither → `Ansi.AUTO`. Preferred over
+  `@ArgGroup(exclusive = true)`: no extra class, no reflection entry. json/csv
+  ignore both and never emit ANSI.
+- Help order (`sortOptions = false`): `-d`, `--max-depth`, `-f`, `--all`,
+  `--color`, `--no-color`, `--exit-code`, `-v`.
+- Reporter construction goes behind a nested
+  `interface ReporterFactory { Reporter create(Format format, Ansi ansi, boolean all); }`
+  and `static Reporter reporter(Format, Ansi, boolean)` in `App`, the single
+  `switch` from enum to `TextReporter(ansi, all)`, `TableReporter(ansi, all)`,
+  `JsonReporter()`, `CsvReporter()`. Production constructor passes
+  `App::reporter`; the existing test constructors wrap their `Reporter` as
+  `(f, a, all) -> reporter`; add `App(Path home, Git git)` using
+  `App::reporter` for format-selection tests. `TextReporter(Ansi)` stays and
+  delegates to `TextReporter(ansi, false)`, so its goldens are untouched.
+- Banner, warnings and the `-v` summary stay on stderr for every format.
+
+### JSON (`JsonReporter`)
+
+- `{"version": 1, "root": "<absolute path>", "repos": [...]}`. Every repo
+  object has exactly these keys, in this order: `path` (string,
+  `displayName()`, platform separators as-is), `dirty` (boolean), `modified`
+  (int), `untracked` (int), `hasRemote` (boolean), `error` (string). Error
+  row: the four status fields are `null`, `error` is the full `strip()`ed git
+  message (not just the first line); status row: `error` is `null`. `dirty`
+  is `null` rather than `true` on error rows because the status is unknown;
+  `jq '.repos[] | select(.dirty or .error)'` still finds everything.
+- 2-space pretty print, one key per line (what `jq .` prints); empty scan →
+  `"repos": []`; single trailing `\n`. Line endings are `\n` on every platform
+  (build in a `StringBuilder`, `out.print`, `out.flush()`) so goldens and
+  consumers see identical bytes everywhere.
+- Escaper `static String quote(String)`: `"` → `\"`, `\` → `\\`, `\n` `\r`
+  `\t` `\b` `\f` → short escapes, other chars below U+0020 → `\u00XX`;
+  everything else including non-ASCII passes through (the `PrintWriter`
+  encodes it). No `/` escaping.
+
+### CSV (`CsvReporter`)
+
+- Header always, even for an empty scan: `path,dirty,modified,untracked,hasRemote,error`.
+- RFC 4180 quoting: wrap in `"` when a field contains `,`, `"`, CR or LF;
+  double embedded `"`. Nothing else is quoted.
+- `\n` line endings, not the RFC's `\r\n`: `column`, `cut`, `awk`, `grep`
+  show or trip over `^M`; Excel, Numbers and Python's `csv` accept `\n`.
+- `true`/`false`, plain integers, `path` = `displayName()`. Error row: four
+  empty cells, then the full stripped message, e.g.
+  `broken,,,,,fatal: bad object HEAD`. Trailing `\n` after the last row.
+
+### Table (`TableReporter`)
+
+- Columns `REPO  MODIFIED  UNTRACKED  REMOTE  ERROR`, two-space separator,
+  plain uppercase header, always all five. `REPO`/`ERROR` left-aligned,
+  counts right-aligned, `REMOTE` is `yes`/`no`. Error rows show `-` in the
+  three status cells and the first line of the message. Last column never
+  padded, no trailing whitespace. Widths computed over the printed rows only.
+  ```
+  REPO    MODIFIED  UNTRACKED  REMOTE  ERROR
+  dirty          6         11  yes
+  budget         0          0  no
+  broken         -          -  -       fatal: bad object HEAD
+  ```
+- Color uses the text roles, applied after padding and measured on the plain
+  string: `REPO` yellow, non-zero counts green, `no`, `-` and `ERROR` red;
+  header and zeros plain. `Ansi.OFF` output is byte-equal to the layout above.
+- Zero rows: print nothing (no header), like text, so `dirty -f table | wc -l`
+  stays meaningful. Platform line separator (`println`), like text.
+
+### Rows per format
+
+text/table: `needsAttention()` only, or every repo with `--all`; a clean row
+in text is `<path>: clean` with `clean` green like the counts. json/csv: every
+repo, always; `dirty` and `error` tell them apart.
+
+### Tests
+
+- `JsonReporterTest`: golden for a dirty, a clean and an error repo whose path
+  and message contain `"`, `\`, a newline and a non-ASCII char; golden for an
+  empty scan; a table test for `quote()`. No test-scope JSON parser (the
+  Jackson allowance above is withdrawn: the golden bytes already pin the
+  document). Structural check: starts with `{\n  "version": 1,`, ends with
+  `}\n`, no raw char below U+0020 except `\n`. Validate the goldens once with
+  `jq .` while writing them and say so in a test comment.
+- `CsvReporterTest`: golden for the same fixture (comma in a path, quote and
+  newline in an error); header-only for an empty scan.
+- `TableReporterTest`: goldens for `Ansi.OFF` and `Ansi.ON` on the mixed
+  fixture; `--all` with a clean row; zero rows → `""`; no trailing whitespace.
+- `TextReporterTest`: existing assertions untouched; add one for
+  `new TextReporter(Ansi.OFF, true)` printing the `clean` row.
+- `AppTest` via `new App(home, git)`: `-f json` starts with `{` and contains
+  `"version": 1`; `-f csv` starts with the header; `-f bogus` → 2 and stderr
+  names the four values; `--color --no-color` → 2; `--all` adds a clean text
+  row; `--no-color` and `-f json --color` contain no `\u001B`; `--help` lists
+  `--format`.
+- Native image: picocli-codegen 4.7.7's `ReflectionConfigGenerator` registers
+  each option's declared type by name (`visitTypeInfo`; only primitives, boxed
+  types and basic `java.lang` classes are excluded), so `App$Format` lands in
+  `build/classes/java/main/META-INF/native-image/picocli-generated/dirty/reflect-config.json`
+  with no extra config. Check with `grep 'App$Format'` on that file after
+  `compileJava`, then `./gradlew nativeTest`. The reporters use no reflection.
+
+### README
+
+- Usage lines: `dirty -f table`, `dirty -f json | jq '.repos[] | select(.dirty)'`,
+  `dirty -f csv > repos.csv`, `dirty --all`, `dirty --no-color`.
+- New "Output formats" paragraph: text/table show only repos needing attention
+  unless `--all`; json/csv list every repo; the JSON document as an example;
+  contract note: "`version` is 1; keys are never removed or renamed within a
+  version, new keys may be added; a breaking change bumps `version`". Color
+  paragraph gains `--color` / `--no-color` next to `NO_COLOR` and the TTY check.
+- Tick the TODOs "Make output tabular" and "Option to output machine readable
+  formats (csv, json)".
