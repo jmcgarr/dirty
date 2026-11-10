@@ -86,7 +86,7 @@ the fixes are sequenced in `specs/001` onward. Headline items:
 - Releasing: push a `vX.Y.Z` tag. The Homebrew formula lives in
   `jmcgarr/homebrew-tap` (`Formula/dirty.rb`); its bump is automatic once
   `HOMEBREW_TAP_TOKEN` is set, otherwise run `bin/update-formula dirty vX.Y.Z`
-  there. Procedure in `specs/009-homebrew-tap-formula.md`.
+  there. Procedure in `specs/completed/009-homebrew-tap-formula.md`.
 - Exit codes: 0 / 1 (repos that could not be inspected, or with `--exit-code`
   anything needing attention) / 2 (usage, git missing) / 130 (interrupted);
   see `App`'s `exitCodeList`. SIGINT itself is handled by the runtime; 130 from
