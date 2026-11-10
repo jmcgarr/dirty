@@ -20,7 +20,7 @@ dependencies {
 
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(21)
+        languageVersion = JavaLanguageVersion.of(25)
     }
 }
 
@@ -50,23 +50,16 @@ jacocoTestReport {
 // Native image. Requires a GraalVM JDK: the plugin looks at GRAALVM_HOME, then
 // JAVA_HOME, then the JVM running Gradle. Locally: `sdk env` (see .sdkmanrc).
 // In CI: graalvm/setup-graalvm. Plain `./gradlew build` does not need GraalVM.
+//
+// The shared reachability-metadata repository is on by default. It supplies
+// picocli's own metadata, complementing the reflection config picocli-codegen
+// generates at compile time. It is fetched from Maven Central on first use.
 graalvmNative {
-    // The shared reachability-metadata repository only matters for third-party
-    // libraries that need reflection config; picocli-codegen generates ours at
-    // compile time. Its current schema also needs a newer GraalVM than CE 21.0.2.
-    metadataRepository {
-        enabled = false
-    }
     binaries {
         main {
             imageName = 'dirty'
             mainClass = 'net.sonofgarr.dirty.App'
             fallback = false
-        }
-        test {
-            // JUnit's @Tag support touches TestTag during image build; JUnit 5.14 on
-            // GraalVM 21 needs this listed explicitly or nativeTestCompile fails.
-            buildArgs.add('--initialize-at-build-time=org.junit.platform.engine.TestTag')
         }
     }
 }

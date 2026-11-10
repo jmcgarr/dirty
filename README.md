@@ -49,17 +49,28 @@ Also, I don't need to justify myself to you! 😉
 
 ## Building
 
-Requirements: Gradle needs **JDK 17 or newer** to run. Compilation uses JDK 21
+Requirements: Gradle needs **JDK 17 or newer** to run. Compilation uses JDK 25
 through a Gradle toolchain, which Gradle downloads if none is installed. The
-native binary additionally needs a **GraalVM JDK 21**.
+native binary additionally needs a **GraalVM JDK 25** (Community Edition 25.5 or newer).
 
-With [sdkman](https://sdkman.io) the repo's `.sdkmanrc` selects GraalVM for you:
+With [sdkman](https://sdkman.io) the repo's `.sdkmanrc` selects GraalVM for you
+once it is installed under the id `25.5-graalce`:
 
 ```
-sdk env install   # first time only
+# first time only: sdkman lists the GraalVM 25.x Community builds but cannot
+# download them (its broker returns 404 as of 2026-11-09), so register a
+# manual download as a local install
+curl -LO https://github.com/graalvm/graalvm-ce-builds/releases/download/graal-25.5.5.0.3/graalvm-community-jdk-25i5-25.0.5.0.3_macos-aarch64_bin.tar.gz
+tar xzf graalvm-community-jdk-25i5-25.0.5.0.3_macos-aarch64_bin.tar.gz
+sdk install java 25.5-graalce "$PWD/graalvm-community-25.5.5.0.3+1.1/Contents/Home"   # Linux: omit Contents/Home
+
+# every session
 sdk env
 ./gradlew build nativeCompile
 ```
+
+Without sdkman, point `GRAALVM_HOME` (or `JAVA_HOME`) at any GraalVM 25
+installation; the native plugin looks there first.
 
 The binary lands at `build/native/nativeCompile/dirty`; copy it onto your `PATH`.
 

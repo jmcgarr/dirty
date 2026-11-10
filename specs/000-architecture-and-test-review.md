@@ -144,7 +144,7 @@ Later, unscheduled: "how far behind remote" (`git rev-list --left-right --count
 
 ## Decisions (2026-11-07, maintainer)
 
-1. **Java 21**, skipping 17.
+1. **Java 21**, skipping 17. Superseded 2026-11-09 by **Java 25** (spec 008): GraalVM CE stopped building for JDK 21 in January 2024.
 2. **Switch to `org.graalvm.buildtools.native`** (shipped with spec 002).
 3. **Exit codes follow the bash/coreutils convention**: 0 success, 1 runtime
    errors (repos that could not be inspected), 2 usage/fatal, 130 on SIGINT.

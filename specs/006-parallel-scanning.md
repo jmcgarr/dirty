@@ -17,7 +17,7 @@ wanted feature.
   `ScanResult`.
 - `--jobs` / `-j` option; default `min(repoCount, availableProcessors())`;
   `-j 1` restores sequential behaviour exactly.
-- On Java 21, `Executors.newVirtualThreadPerTaskExecutor()` is a one-line
+- On Java 21+, `Executors.newVirtualThreadPerTaskExecutor()` is a one-line
   alternative to a fixed pool.
 - Because every `RepoReport` is immutable and rendering happens after the
   barrier, no reporter needs to be thread-safe and output order is
@@ -49,9 +49,9 @@ measured).
 ## Open questions (maintainer)
 
 - Cap on the default job count (e.g. 8) to avoid hammering a laptop disk?
-- Fixed pool vs virtual threads if the Java level is 21?
+- Fixed pool vs virtual threads if the Java level is 21 or newer?
 
 ## Decisions (2026-11-07)
 
-- Java 21: `Executors.newVirtualThreadPerTaskExecutor()`; no default job cap.
+- Java 25 (virtual threads, 21+): `Executors.newVirtualThreadPerTaskExecutor()`; no default job cap.
   `-j N` remains available to throttle (bounded via a semaphore if set).

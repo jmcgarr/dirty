@@ -10,7 +10,7 @@ repos with untracked/modified files (via `git status -s`) or repos with no
 remote configured (via `git remote`). It is compiled to a native binary with
 GraalVM and distributed via GitHub Releases.
 
-- **Language / build:** Java 21 (Gradle toolchain), Gradle 8.6 (wrapper checked
+- **Language / build:** Java 25 (Gradle toolchain), Gradle 9.8 (wrapper checked
   in), picocli 4.7 for CLI parsing, `org.graalvm.buildtools.native` for
   native-image builds.
 - **Entry point:** `src/main/java/net/sonofgarr/dirty/App.java`, a picocli
@@ -35,28 +35,39 @@ GraalVM and distributed via GitHub Releases.
 ## Common commands
 
 ```bash
-./gradlew build                 # compile + jar + tests (run Gradle on JDK 17+; it provisions JDK 21 for compiling)
+./gradlew build                 # compile + jar + tests (run Gradle on JDK 17+; it provisions JDK 25 for compiling)
 ./gradlew test                  # run JUnit tests
 ./gradlew run --args="-d Code"  # run the CLI; -d is a dir name under $HOME or an absolute path
-sdk env && ./gradlew nativeCompile   # native binary -> build/native/nativeCompile/dirty (needs GraalVM 21)
+sdk env && ./gradlew nativeCompile   # native binary -> build/native/nativeCompile/dirty (needs GraalVM 25)
 ./gradlew nativeTest            # run the JUnit suite inside a native image (catches reflection gaps)
 ```
 
 Notes:
 - The native plugin finds `native-image` via `GRAALVM_HOME`, then `JAVA_HOME`,
-  then the JVM running Gradle. `.sdkmanrc` pins `21.0.2-graalce`; run `sdk env`
-  (or `sdk env install` once) before native tasks. CI uses
-  `graalvm/setup-graalvm`. Do not try to make `./gradlew build` depend on
-  GraalVM; contributors without it must still be able to build and test.
+  then the JVM running Gradle. `.sdkmanrc` pins the local id `25.5-graalce`;
+  run `sdk env` before native tasks. CI uses `graalvm/setup-graalvm`. Do not
+  try to make `./gradlew build` depend on GraalVM; contributors without it
+  must still be able to build and test.
+- `sdk env install` does not work for GraalVM 25.x Community builds (as of
+  2026-11-09, sdkman 5.18): the catalog lists `25.5.5.0+3-graalce` but its
+  download broker returns 404, and the catalog id is too long for
+  `sdk install java <id> <path>`. The README shows the manual download plus
+  local-install route under the short id `25.5-graalce`.
+- GraalVM Community Edition ships monthly "innovation" builds on the JDK 25
+  baseline (see spec 008). The pin lives in two places Dependabot does not
+  watch: `.sdkmanrc` and the `version:` input of `graalvm/setup-graalvm` in
+  `gradle.yml` and `release.yml`. Bump both together, roughly quarterly.
+  Upstream tag `graal-A.B.C.D.E` maps to setup-graalvm `version: 'A.B'` and
+  to the local sdkman id `A.B-graalce`.
 - Running `nativeCompile` on a plain JDK fails with a "native-image not found"
   style error. That is a toolchain problem, not a code bug.
 - `build/`, `.gradle/`, and `.idea/` are git-ignored build/IDE output. Never
   commit them.
 
-## Known rough edges (as of 2026-11-08)
+## Known rough edges (as of 2026-11-09)
 
 A full architecture and test review lives in `specs/000-architecture-and-test-review.md`;
-the fixes are sequenced in `specs/001` through `specs/007`. Headline items:
+the fixes are sequenced in `specs/001` onward. Headline items:
 
 - `codesign.yml` has the actual `codesign` invocation commented out and
   hard-codes a throwaway keychain password; nothing calls it any more. It is
