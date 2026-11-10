@@ -145,3 +145,5 @@ PR: https://github.com/jmcgarr/dirty/pull/6
   "N modified, M untracked"; header on stderr; ANSI bytes differ (picocli emits
   `ESC[39m ESC[0m` as the reset) but render identically.
 
+
+**Shipped in:** https://github.com/jmcgarr/dirty/pull/6 (merged 2026-11-09).
