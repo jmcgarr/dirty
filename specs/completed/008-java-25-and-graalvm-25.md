@@ -89,3 +89,5 @@ signing, and Homebrew tap (007); automating the GraalVM pin bump.
 - Pin GraalVM CE 25.5 explicitly in CI and `.sdkmanrc`.
 - `.sdkmanrc` uses the short local id `25.5-graalce` because sdkman cannot
   install the catalog id (see step 2).
+
+**Shipped in:** https://github.com/jmcgarr/dirty/pull/8 (merged 2026-11-09).
