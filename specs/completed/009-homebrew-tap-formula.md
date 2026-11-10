@@ -314,3 +314,7 @@ to the tap's scripts or workflows.
 - Not in this PR (lives in the tap, needs the release to exist first):
   `Formula/dirty.rb` and the tap README row; see the first-release procedure.
 
+
+**Shipped in:** https://github.com/jmcgarr/dirty/pull/12 (merged 2026-11-09),
+release https://github.com/jmcgarr/dirty/releases/tag/v0.1.0, and
+https://github.com/jmcgarr/homebrew-tap/pull/1 (`Formula/dirty.rb`).
