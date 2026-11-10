@@ -21,7 +21,7 @@ import java.util.function.Function;
 @Command(
         name = "dirty",
         description = "How many of my git repos are dirty?",
-        version = "dirty 0.1.0",
+        version = "dirty " + Version.VERSION,
         mixinStandardHelpOptions = true,
         sortOptions = false,
         exitCodeListHeading = "%nExit codes:%n",

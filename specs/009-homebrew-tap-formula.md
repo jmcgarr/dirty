@@ -281,3 +281,36 @@ to the tap's scripts or workflows.
    or Dependabot to watch, and the only feature lost
    (`fail_on_unmatched_files`) is the one-line asset count check above.
    `softprops` is acceptable if the maintainer prefers symmetry with git-grab.
+
+## Decisions (2026-11-09, maintainer)
+
+- License: **Apache-2.0** (`LICENSE` added in #11).
+- First release: Linux x86_64 and macOS aarch64 only; Windows, macOS Intel and
+  Linux aarch64 stay in 007.
+- First tag `v0.1.0`.
+- `gh release create`, no third-party release action.
+
+## Implementation notes (2026-11-09)
+
+- `build.gradle`: `version` defaults to `0.0.0-dev` when no `-Pversion` is
+  given; `generateVersion` writes `build/generated/sources/version/java/main/net/sonofgarr/dirty/Version.java`
+  and is a source dir of `main`, so every compile (JVM, native, IDE) sees it.
+  `App` uses `"dirty " + Version.VERSION`; `AppTest` asserts the same constant.
+- `release.yml` as designed above, with a first step that rejects tags not
+  matching `vX.Y.Z[-suffix]` (defense in depth: the tag becomes a Java string
+  literal and a tap workflow input), `fail-fast` on the matrix,
+  `if-no-files-found: error` on upload, and `--repo "$GITHUB_REPOSITORY"` on
+  `gh release create` because the publish job does not check out the repo.
+  Release assets carry no mode bits, so users `chmod +x` (README says so).
+- `build.gradle` rejects a version string with characters outside
+  `[0-9A-Za-z.+-]` for the same reason.
+- `Version.java` is generated, so after a fresh clone the IDE sees an
+  unresolved class until `./gradlew generateVersion` (or any build) has run.
+- `build/libs/dirty.jar` is now `dirty-0.0.0-dev.jar` (or `dirty-X.Y.Z.jar`);
+  nothing referenced the old name.
+- `download-artifact@v8` (Dependabot already moved `codesign.yml` to v8).
+- README Installation section and TODO ticks; CLAUDE.md release notes; spec 007
+  narrowed.
+- Not in this PR (lives in the tap, needs the release to exist first):
+  `Formula/dirty.rb` and the tap README row; see the first-release procedure.
+

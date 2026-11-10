@@ -6,7 +6,19 @@ Small command line utility to find all the dirty git repositories on your machin
 
 ## Installation
 
-Coming soon,...
+With [Homebrew](https://brew.sh) on macOS (Apple silicon) or Linux (x86_64):
+
+```sh
+brew install jmcgarr/tap/dirty
+```
+
+Homebrew asks once before running a third-party tap's formulae; answer for
+every formula in the tap with `brew trust jmcgarr/tap`.
+
+Prebuilt binaries and a `SHA256SUMS` file are attached to each
+[GitHub release](https://github.com/jmcgarr/dirty/releases). Download the one
+for your platform, `chmod +x` it, and put it on your `PATH`. Either way `dirty`
+needs `git` on your `PATH`.
 
 ## Usage
 
@@ -101,7 +113,8 @@ This project is very nascent and lots of work is needed before it should taken s
 
 - [X] Build each commit via CI
 - [X] Publish from CI to Github packages
-- [ ] Produce binaries for Windows, Mac and Linux
+- [X] Produce binaries for Mac and Linux
+- [ ] Produce a Windows binary
 - [ ] Test/support Windows
 - [ ] Add signing to binaries for Mac and Windows
-- [ ] Allow `brew install` (likely requires me creating a tap)
+- [X] Allow `brew install` (likely requires me creating a tap)

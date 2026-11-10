@@ -119,7 +119,7 @@ class AppTest {
     @Test
     void versionAndHelp() {
         assertEquals(0, run("--version"));
-        assertEquals("dirty 0.1.0" + System.lineSeparator(), out.toString());
+        assertEquals("dirty " + Version.VERSION + System.lineSeparator(), out.toString());
         assertEquals(0, run("--help"));
         assertTrue(out.toString().contains("--max-depth"), out.toString());
     }
