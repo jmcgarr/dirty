@@ -200,3 +200,5 @@ repo, always; `dirty` and `error` tell them apart.
   paragraph gains `--color` / `--no-color` next to `NO_COLOR` and the TTY check.
 - Tick the TODOs "Make output tabular" and "Option to output machine readable
   formats (csv, json)".
+
+**Shipped in:** https://github.com/jmcgarr/dirty/pull/14 (merged 2026-11-15), released as v0.2.0.
