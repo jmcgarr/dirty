@@ -28,7 +28,11 @@ GraalVM and distributed via GitHub Releases.
     exit or I/O failure → `GitException`.
   - `Scanner` → `ScanResult(root, List<RepoReport>)`; a `RepoReport` carries
     either a status or an error string.
-  - `Reporter` + `TextReporter(Ansi)`: renders to an injected `PrintWriter`.
+  - `Reporter` + `TextReporter`, `TableReporter` (both take picocli's
+    `Help.Ansi` and an `all` flag), `JsonReporter` (version 1 document, a
+    public contract documented in the README), `CsvReporter`: render to an
+    injected `PrintWriter`. `App.reporter(Format, Ansi, boolean)` is the only
+    place `--format` becomes a reporter; machine formats never emit ANSI.
 - **Tests:** `src/test` has unit tests for every component (hand-written fakes,
   no Mockito) plus `ProcessGitIT`, a real-git integration test that is skipped
   when git is not on PATH. `./gradlew test` runs all of them.
@@ -91,10 +95,11 @@ the fixes are sequenced in `specs/001` onward. Headline items:
   anything needing attention) / 2 (usage, git missing) / 130 (interrupted);
   see `App`'s `exitCodeList`. SIGINT itself is handled by the runtime; 130 from
   `App` covers programmatic interruption (spec 006 will rely on it).
-- No `--format`/`--color` options yet (spec 005); `TextReporter` uses picocli
-  `Ansi.AUTO`, so colors are off when piped or `NO_COLOR` is set.
-- README TODOs: tabular/JSON/CSV output, logging, parallel scanning,
-  "how far behind remote" check, Windows support and binary, signing.
+- Colors: `Ansi.AUTO` unless `--color`/`--no-color`, so they are off when
+  piped or `NO_COLOR` is set. The JSON shape is a public contract (see README):
+  never remove or rename a key without bumping `"version"`.
+- README TODOs: logging, parallel scanning, "how far behind remote" check,
+  Windows support and binary, signing.
 
 ## How to work in this repo
 

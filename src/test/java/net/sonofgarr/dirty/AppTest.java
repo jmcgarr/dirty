@@ -34,6 +34,14 @@ class AppTest {
         return cmd.execute(args);
     }
 
+    /** Like {@link #run} but with the real format selection, so {@code -f}, {@code --all} and the color flags matter. */
+    private int runWithFormats(String... args) {
+        CommandLine cmd = new CommandLine(new App(home, git));
+        cmd.setOut(new PrintWriter(out));
+        cmd.setErr(new PrintWriter(err));
+        return cmd.execute(args);
+    }
+
     private Path repo(Path parent, String name) throws IOException {
         Path dir = parent.resolve(name);
         Files.createDirectories(dir.resolve(".git"));
@@ -231,5 +239,124 @@ class AppTest {
         assertEquals(0, run("--help"));
         assertTrue(out.toString().contains("Exit codes:"), out.toString());
         assertTrue(out.toString().contains("130"), out.toString());
+    }
+
+    @Test
+    void jsonFormatPrintsTheVersionOneDocument() throws IOException {
+        Path projects = Files.createDirectories(home.resolve("Projects"));
+        git.status(repo(projects, "a"), 0, 0, true);
+        git.status(repo(projects, "b"), 2, 0, true);
+
+        assertEquals(0, runWithFormats("-f", "json"));
+        String json = out.toString();
+        assertTrue(json.startsWith("{\n  \"version\": 1,\n  \"root\": "), json);
+        assertTrue(json.contains("\"path\": \"a\",\n      \"dirty\": false,"), json);
+        assertTrue(json.contains("\"path\": \"b\",\n      \"dirty\": true,"), json);
+        assertEquals("Finding dirty git repos in " + projects + System.lineSeparator(), err.toString());
+    }
+
+    @Test
+    void csvFormatStartsWithTheHeader() throws IOException {
+        Path projects = Files.createDirectories(home.resolve("Projects"));
+        git.status(repo(projects, "a"), 0, 1, false);
+
+        assertEquals(0, runWithFormats("--format", "csv"));
+        assertEquals("path,dirty,modified,untracked,hasRemote,error\na,true,0,1,false,\n", out.toString());
+    }
+
+    @Test
+    void tableFormatPrintsAlignedColumns() throws IOException {
+        Path projects = Files.createDirectories(home.resolve("Projects"));
+        git.status(repo(projects, "a"), 3, 0, true);
+
+        assertEquals(0, runWithFormats("-f", "table", "--no-color"));
+        assertEquals("REPO  MODIFIED  UNTRACKED  REMOTE  ERROR" + System.lineSeparator()
+                + "a            3          0  yes" + System.lineSeparator(), out.toString());
+    }
+
+    @Test
+    void allAddsCleanRepositoriesToTableOutput() throws IOException {
+        Path projects = Files.createDirectories(home.resolve("Projects"));
+        git.status(repo(projects, "a"), 0, 0, true);
+        git.status(repo(projects, "b"), 0, 2, false);
+
+        assertEquals(0, runWithFormats("-f", "table", "--all", "--no-color"));
+        assertEquals("REPO  MODIFIED  UNTRACKED  REMOTE  ERROR" + System.lineSeparator()
+                + "a            0          0  yes" + System.lineSeparator()
+                + "b            0          2  no" + System.lineSeparator(), out.toString());
+    }
+
+    @Test
+    void helpListsOptionsInTheDocumentedOrder() {
+        assertEquals(0, run("--help"));
+        String help = out.toString();
+        help = help.substring(help.indexOf("  -d, --directory")); // skip the synopsis, which sorts options
+        int last = -1;
+        for (String option : new String[] {"-d, --directory", "--max-depth", "-f, --format", "--all", "--color",
+                "--no-color", "--exit-code", "-v, --verbose"}) {
+            int at = help.indexOf(option);
+            assertTrue(at > last, option + " out of order in:\n" + help);
+            last = at;
+        }
+    }
+
+    @Test
+    void unknownFormatIsAUsageError() {
+        assertEquals(2, runWithFormats("-f", "bogus"));
+        assertTrue(err.toString().contains("[text, table, json, csv]"), err.toString());
+    }
+
+    @Test
+    void colorAndNoColorAreMutuallyExclusive() throws IOException {
+        Files.createDirectories(home.resolve("Projects"));
+
+        assertEquals(2, runWithFormats("--color", "--no-color"));
+        assertTrue(err.toString().startsWith("--color and --no-color are mutually exclusive"), err.toString());
+    }
+
+    @Test
+    void allAddsCleanRepositoriesToTextOutput() throws IOException {
+        Path projects = Files.createDirectories(home.resolve("Projects"));
+        git.status(repo(projects, "a"), 0, 0, true);
+        git.status(repo(projects, "b"), 1, 0, true);
+
+        assertEquals(0, runWithFormats("--all", "--no-color"));
+        assertEquals("a: clean" + System.lineSeparator() + "b: 1 modified" + System.lineSeparator(), out.toString());
+    }
+
+    @Test
+    void colorFlagForcesEscapesOnAndNoColorForcesThemOff() throws IOException {
+        Path projects = Files.createDirectories(home.resolve("Projects"));
+        git.status(repo(projects, "a"), 1, 0, true);
+
+        assertEquals(0, runWithFormats("--color"));
+        assertTrue(out.toString().contains("\u001B["), out.toString());
+
+        out.getBuffer().setLength(0);
+        assertEquals(0, runWithFormats("--no-color"));
+        assertFalse(out.toString().contains("\u001B["), out.toString());
+    }
+
+    @Test
+    void machineFormatsNeverEmitEscapesEvenWithColorForced() throws IOException {
+        Path projects = Files.createDirectories(home.resolve("Projects"));
+        git.status(repo(projects, "a"), 1, 0, false);
+
+        assertEquals(0, runWithFormats("-f", "json", "--color"));
+        assertFalse(out.toString().contains("\u001B["), out.toString());
+
+        out.getBuffer().setLength(0);
+        assertEquals(0, runWithFormats("-f", "csv", "--color"));
+        assertFalse(out.toString().contains("\u001B["), out.toString());
+    }
+
+    @Test
+    void helpListsTheFormatOptions() {
+        assertEquals(0, run("--help"));
+        String help = out.toString();
+        assertTrue(help.contains("-f, --format=<format>"), help);
+        assertTrue(help.contains("text, table, json, csv"), help);
+        assertTrue(help.contains("--all"), help);
+        assertTrue(help.contains("--no-color"), help);
     }
 }

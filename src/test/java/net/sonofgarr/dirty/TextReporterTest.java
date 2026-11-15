@@ -53,6 +53,20 @@ class TextReporterTest {
     }
 
     @Test
+    void allListsCleanRepositoriesToo() {
+        ScanResult result = new ScanResult(Path.of("/root"), List.of(
+                RepoReport.of(Path.of("clean"), new RepoStatus(0, 0, true)),
+                RepoReport.of(Path.of("dirty"), new RepoStatus(1, 0, true))
+        ));
+
+        assertEquals("clean: clean" + System.lineSeparator() + "dirty: 1 modified" + System.lineSeparator(),
+                Fixtures.render(new TextReporter(Ansi.OFF, true), result));
+        assertEquals(ESC + "33mclean:" + END + " " + ESC + "32mclean" + END + System.lineSeparator()
+                + ESC + "33mdirty:" + END + " " + ESC + "32m1 modified" + END + System.lineSeparator(),
+                Fixtures.render(new TextReporter(Ansi.ON, true), result));
+    }
+
+    @Test
     void rootRepositoryIsShownAsDot() {
         assertEquals(".: 1 modified", plain.format(RepoReport.of(Path.of(""), new RepoStatus(1, 0, true))));
     }

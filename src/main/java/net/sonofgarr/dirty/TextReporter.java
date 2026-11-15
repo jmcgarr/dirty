@@ -12,13 +12,20 @@ import java.util.List;
 /**
  * One line per repository that needs attention:
  * {@code <path>: <n> modified, <m> untracked No remote repository}.
+ * With {@code all}, clean repositories are listed too, as {@code <path>: clean}.
  */
 public final class TextReporter implements Reporter {
 
     private final ColorScheme colors;
+    private final boolean all;
 
     public TextReporter(Ansi ansi) {
+        this(ansi, false);
+    }
+
+    public TextReporter(Ansi ansi, boolean all) {
         this.colors = new ColorScheme.Builder().ansi(ansi).build();
+        this.all = all;
     }
 
     /** Styles are applied programmatically; repo names and git messages are never parsed as markup. */
@@ -29,7 +36,7 @@ public final class TextReporter implements Reporter {
     @Override
     public void report(ScanResult result, PrintWriter out) {
         for (RepoReport report : result.reports()) {
-            if (report.needsAttention()) {
+            if (all || report.needsAttention()) {
                 out.println(format(report));
             }
         }
@@ -42,6 +49,9 @@ public final class TextReporter implements Reporter {
             return line.append(' ').append(paint("error: " + firstLine(report.error()), Style.fg_red)).toString();
         }
         RepoStatus status = report.status();
+        if (!status.isDirty()) {
+            return line.append(' ').append(paint("clean", Style.fg_green)).toString();
+        }
         List<String> counts = new ArrayList<>();
         if (status.modified() > 0) {
             counts.add(status.modified() + " modified");
