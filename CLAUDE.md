@@ -98,7 +98,7 @@ the fixes are sequenced in `specs/001` onward. Headline items:
 - Colors: `Ansi.AUTO` unless `--color`/`--no-color`, so they are off when
   piped or `NO_COLOR` is set. The JSON shape is a public contract (see README):
   never remove or rename a key without bumping `"version"`.
-- README TODOs: logging, parallel scanning, "how far behind remote" check,
+- README TODOs: parallel scanning, "how far behind remote" check,
   Windows support and binary, signing.
 
 ## How to work in this repo

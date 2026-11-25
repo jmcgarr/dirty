@@ -150,7 +150,7 @@ This project is very nascent and lots of work is needed before it should taken s
 - [X] Add tests
 - [X] Make output tabular (optional?)   
 - [X] Option to output machine readable formats (csv, json)  
-- [ ] Add better stdout/stderr (logging perhaps)
+- [X] Add better stdout/stderr (logging perhaps): results on stdout, banner and warnings on stderr, `-v` traces every git call; no logging framework needed
 - [ ] Parallelize the scanning of git repos  
 - [ ] Check to see how far behind each repository is (this should be an option)
 
