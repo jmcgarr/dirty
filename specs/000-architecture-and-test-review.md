@@ -25,18 +25,21 @@ red for a different reason than previously documented.
 
 ## Findings on `master`
 
-| # | Where | Finding | Verified how |
-|---|---|---|---|
-| B1 | `App.java:24-27` | `-d` is ignored. `path` is a field initializer computed before picocli injects the option, so the tool always scans `$HOME/Projects`. | `./gradlew run --args="-d <other>"` scanned `~/Projects`. |
-| B2 | `App.java:92-99, 109-120` | stdout gobbler is submitted to an executor and never joined; counts are read right after `waitFor()`. Lines are lost. | Cold JVM: a repo with 2 status lines reported **0 dirty files in 25/25 runs**; 20,000 untracked files reported 16,280; a repo *with* a remote reported "No remote". Masked in the CLI only because picocli start-up warms the JVM. A native image has no warm-up. |
-| B3 | same | stderr is never drained. git blocks if it writes more than the pipe buffer. | `git` shim writing 200 KB to stderr hung the scan past an 8 s watchdog. |
-| B4 | same | `Executors.newSingleThreadExecutor()` per call, never shut down. Two non-daemon threads leak per repo. | Harness calling `status()` 8 times never exited. Hidden only by `System.exit` in `main`. |
-| B5 | `App.java:95, 116, 103, 117-119` | `assert exitCode == 0` is dead at runtime; `IOException` swallowed; `hasNoRemote` defaults to `true`. Any git failure prints as "No remote repository". Exit code is always 0. | `git` off PATH: stack trace, then every repo "No remote repository", exit 0. Empty `.git` dir: same. |
-| B6 | `App.java:66, 74` | `listFiles()` returns `null` on unreadable dirs; `Arrays.stream(null)` throws. One unreadable directory kills the whole scan. | `chmod 000` dir under root: NPE, no results. |
-| B7 | `App.java:42-69` | Unbounded recursion, follows symlinks, no skip list, no depth cap. | `Projects/loop -> .` symlink reported the same repo 33 times. |
-| B8 | `App.java:48-50` | Label "untracked files" but `git status -s` counts modified/staged/deleted too, and collapses an untracked dir into one line. | 1 modified + 3 untracked in a subdir printed "2 untracked files". |
-| B9 | `App.java:48-61` | ANSI escapes written unconditionally, including when piped. | `dirty | cat -v` shows `^[[33m`. |
-| B10 | `App.java:43` | Missing root directory exits 0 silently. | |
+> **All ten findings fixed as of 2026-11-25** (specs 003, 004, 005; see the last column).
+> The build/toolchain paragraph was resolved by specs 002 and 008, the CI paragraph by spec 001.
+
+| # | Where | Finding | Verified how | Fixed in |
+|---|---|---|---|---|
+| B1 | `App.java:24-27` | `-d` is ignored. `path` is a field initializer computed before picocli injects the option, so the tool always scans `$HOME/Projects`. | `./gradlew run --args="-d <other>"` scanned `~/Projects`. | 003 (`resolveRoot()` runs in `call()`) |
+| B2 | `App.java:92-99, 109-120` | stdout gobbler is submitted to an executor and never joined; counts are read right after `waitFor()`. Lines are lost. | Cold JVM: a repo with 2 status lines reported **0 dirty files in 25/25 runs**; 20,000 untracked files reported 16,280; a repo *with* a remote reported "No remote". Masked in the CLI only because picocli start-up warms the JVM. A native image has no warm-up. | 003/004 (drain threads joined before reading) |
+| B3 | same | stderr is never drained. git blocks if it writes more than the pipe buffer. | `git` shim writing 200 KB to stderr hung the scan past an 8 s watchdog. | 003 (stderr drained) |
+| B4 | same | `Executors.newSingleThreadExecutor()` per call, never shut down. Two non-daemon threads leak per repo. | Harness calling `status()` 8 times never exited. Hidden only by `System.exit` in `main`. | 003 (two daemon drain threads, no executor) |
+| B5 | `App.java:95, 116, 103, 117-119` | `assert exitCode == 0` is dead at runtime; `IOException` swallowed; `hasNoRemote` defaults to `true`. Any git failure prints as "No remote repository". Exit code is always 0. | `git` off PATH: stack trace, then every repo "No remote repository", exit 0. Empty `.git` dir: same. | 004 (`GitException`, exit codes 1/2) |
+| B6 | `App.java:66, 74` | `listFiles()` returns `null` on unreadable dirs; `Arrays.stream(null)` throws. One unreadable directory kills the whole scan. | `chmod 000` dir under root: NPE, no results. | 003 (`RepoFinder.visitFileFailed`) |
+| B7 | `App.java:42-69` | Unbounded recursion, follows symlinks, no skip list, no depth cap. | `Projects/loop -> .` symlink reported the same repo 33 times. | 003 (`walkFileTree`, no symlinks, depth cap, skip list) |
+| B8 | `App.java:48-50` | Label "untracked files" but `git status -s` counts modified/staged/deleted too, and collapses an untracked dir into one line. | 1 modified + 3 untracked in a subdir printed "2 untracked files". | 003 (`modified`/`untracked` counts) |
+| B9 | `App.java:48-61` | ANSI escapes written unconditionally, including when piped. | `dirty | cat -v` shows `^[[33m`. | 005 (picocli `Ansi.AUTO`, `--no-color`) |
+| B10 | `App.java:43` | Missing root directory exits 0 silently. | | 003 ("Not a directory", exit 2) |
 
 Build and toolchain: Java 8 target (`build.gradle:20-24`) vs JDK 11 in CI vs
 Temurin 21 locally; picocli 4.1.0 (2019); `mockito-core:2.+` resolves to
